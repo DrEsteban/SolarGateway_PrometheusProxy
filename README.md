@@ -6,7 +6,6 @@ Provides a "proxy" API that gathers metrics from a Tesla Solar Gateway, for inge
 
 ## Running
 ```sh
-$ cd API/
 $ docker build -t teslagatewayproxy .
 $ docker run -it --rm -p 8080:80 teslagatewayproxy
 ```
