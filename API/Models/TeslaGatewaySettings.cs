@@ -1,4 +1,4 @@
-﻿namespace TeslaGateway_PrometheusProxy;
+﻿namespace TeslaGateway_PrometheusProxy.Models;
 
 public class TeslaGatewaySettings
 {

@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Options;
 using Prometheus;
-using TeslaGateway_PrometheusProxy;
 using TeslaGateway_PrometheusProxy.Models;
 
 var builder = WebApplication.CreateBuilder(args);
