@@ -101,9 +101,9 @@ public class TeslaGatewayMetricsController : ControllerBase
                         break;
                     case JsonValueKind.String:
                         // Assumed to be DateTime
-                        if (DateTime.TryParse(metric.Value.GetString(), out var date))
+                        if (DateTimeOffset.TryParse(metric.Value.GetString(), out var date))
                         {
-                            CreateGauge(category.Name, metric.Name).Set(date.Ticks);
+                            CreateGauge(category.Name, metric.Name).Set(date.SecondsSinceEpoch());
                         }
 
                         break;
@@ -156,9 +156,9 @@ public class TeslaGatewayMetricsController : ControllerBase
             return false;
         }
 
-        if (DateTime.TryParse(metricsDocument.RootElement.GetProperty("start_time").GetString(), out var startTime))
+        if (DateTimeOffset.TryParse(metricsDocument.RootElement.GetProperty("start_time").GetString(), out var startTime))
         {
-            CreateGauge("status", "start_time").Set(startTime.Ticks);
+            CreateGauge("status", "start_time").Set(startTime.SecondsSinceEpoch());
         }
 
         var match = UpTimeRegex.Match(metricsDocument.RootElement.GetProperty("up_time_seconds").GetString() ?? string.Empty);
