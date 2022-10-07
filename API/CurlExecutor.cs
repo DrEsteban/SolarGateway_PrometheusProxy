@@ -10,12 +10,12 @@ namespace TeslaGateway_PrometheusProxy;
 /// </summary>
 public static class CurlExecutor
 {
-    public static Task<(bool success, string output)> ExecuteCurlAsync(string url, string authToken = null)
+    public static Task<(bool success, string output)> ExecuteCurlAsync(string url, string? authToken = null)
     {
         return ExecuteCurlInnerAsync(url, null, authToken);
     }
 
-    public static Task<(bool success, string output)> ExecuteCurlAsync<T>(string url, T body, string authToken = null)
+    public static Task<(bool success, string output)> ExecuteCurlAsync<T>(string url, T body, string? authToken = null)
     {
         string bodyStr = JsonSerializer.SerializeToElement(body).ToString();
         return ExecuteCurlInnerAsync(url, bodyStr, authToken);
