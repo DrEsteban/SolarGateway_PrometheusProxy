@@ -10,7 +10,8 @@ builder.Services.AddMemoryCache();
 builder.Services.Configure<LoginRequest>(builder.Configuration.GetSection("TeslaGateway"));
 builder.Services.AddHttpClient(nameof(TeslaGatewayMetricsService), (_, client) => 
 {
-    client.BaseAddress = new Uri($"https://{builder.Configuration["TeslaGateway:Host"]}"); 
+    client.BaseAddress = new Uri($"https://{builder.Configuration["TeslaGateway:Host"]}");
+    // The Tesla Gateway only accepts a certain set of Host header values
     client.DefaultRequestHeaders.Host = "powerwall";
 }).ConfigurePrimaryHttpMessageHandler(_ =>
 {
@@ -33,11 +34,7 @@ builder.Services.AddSingleton<CollectorRegistry>(_ =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseDeveloperExceptionPage();
-}
-
+app.UseDeveloperExceptionPage();
 app.MapControllers();
 
 app.Run();
