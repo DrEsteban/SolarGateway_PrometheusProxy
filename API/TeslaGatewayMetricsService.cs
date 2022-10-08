@@ -82,9 +82,12 @@ public class TeslaGatewayMetricsService
         
         // Request duration metric
         CreateGauge("apiproxy", "request_duration_ms", "loginCached")
-            .WithLabels(loginCached.ToString())
-            .Set(sw.ElapsedMilliseconds);
-        
+            .WithLabels("true")
+            .Set(loginCached ? sw.ElapsedMilliseconds : 0);
+        CreateGauge("apiproxy", "request_duration_ms", "loginCached")
+            .WithLabels("false")
+            .Set(loginCached ? 0 : sw.ElapsedMilliseconds);
+
         // Serialize metrics
         await using var stream = new MemoryStream();
         await _registry.CollectAndExportAsTextAsync(stream);
