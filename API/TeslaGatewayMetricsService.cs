@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Caching.Memory;
@@ -10,40 +12,48 @@ namespace TeslaGateway_PrometheusProxy;
 public class TeslaGatewayMetricsService
 {
     private readonly LoginRequest _loginRequest;
-    private readonly TeslaGatewaySettings _gatewaySettings;
     private readonly ILogger<TeslaGatewayMetricsService> _logger;
     private readonly CollectorRegistry _registry;
     private readonly IMemoryCache _cache;
+    private readonly HttpClient _client;
 
     public TeslaGatewayMetricsService(
         IOptions<LoginRequest> loginRequest,
-        IOptions<TeslaGatewaySettings> gatewaySettings,
         ILogger<TeslaGatewayMetricsService> logger,
         CollectorRegistry registry,
-        IMemoryCache cache)
+        IMemoryCache cache,
+        IHttpClientFactory httpClientFactory)
     {
         _loginRequest = loginRequest.Value;
-        _gatewaySettings = gatewaySettings.Value;
         _logger = logger;
         _registry = registry;
         _cache = cache;
+        _client = httpClientFactory.CreateClient(nameof(TeslaGatewayMetricsService));
     }
 
     public async Task<string> CollectAndGetJsonAsync()
     {
+        var sw = Stopwatch.StartNew();
+        bool loginCached = true;
+
         // Get token
         var loginResponse = await _cache.GetOrCreateAsync("gateway_token", async e =>
         {
-            var (success, response) = await CurlExecutor.ExecuteCurlAsync(BuildUri("/api/login/Basic"), _loginRequest);
-            if (!success)
+            loginCached = false;
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/login/Basic");
+            request.Content = JsonContent.Create(_loginRequest);
+            using var response = await _client.SendAsync(request);
+            var responseContent = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError($"Error calling login endpoint: {response}");
-                e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMilliseconds(1);
+                _logger.LogError($"Got {response.StatusCode} calling login endpoint: {responseContent}");
+                // Prevent bombarding the login endpoint
+                e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(1);
                 return null;
             }
-            
+
             e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
-            return JsonSerializer.Deserialize<LoginResponse>(response);
+            return JsonSerializer.Deserialize<LoginResponse>(responseContent);
         });
 
         if (loginResponse is null)
@@ -51,7 +61,7 @@ public class TeslaGatewayMetricsService
             throw new MetricRequestFailedException("Login response was null");
         }
 
-        if (string.IsNullOrEmpty(loginResponse?.Token))
+        if (string.IsNullOrEmpty(loginResponse.Token))
         {
             string err = $"Failed to parse {nameof(LoginResponse)} for valid token";
             _logger.LogError(err);
@@ -70,6 +80,12 @@ public class TeslaGatewayMetricsService
             throw new MetricRequestFailedException($"Failed to pull {results.Count(r => !r)}/{results.Length} endpoints on gateway");
         }
         
+        // Request duration metric
+        CreateGauge("apiproxy", "request_duration_ms", "loginCached")
+            .WithLabels(loginCached.ToString())
+            .Set(sw.ElapsedMilliseconds);
+        
+        // Serialize metrics
         await using var stream = new MemoryStream();
         await _registry.CollectAndExportAsTextAsync(stream);
         stream.Position = 0;
@@ -195,16 +211,17 @@ public class TeslaGatewayMetricsService
 
     private async Task<JsonDocument?> CallMetricEndpointAsync(string path, LoginResponse loginResponse)
     {
-        var (success, response) = await CurlExecutor.ExecuteCurlAsync(BuildUri(path), loginResponse.Token);
-        if (!success)
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", loginResponse.Token);
+        using var response = await _client.SendAsync(request);
+        var responseContent = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
         {
-            _logger.LogError($"Error calling '{path}': {response}");
+            _logger.LogError($"Got {response.StatusCode} calling '{path}': {responseContent}");
             return null;
         }
 
-        return JsonDocument.Parse(response);
+        return JsonDocument.Parse(responseContent);
     }
-
-    private string BuildUri(string path)
-        => new UriBuilder("https", _gatewaySettings.Host, 443, path).ToString();
 }
