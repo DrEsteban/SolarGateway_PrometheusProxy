@@ -85,14 +85,8 @@ public class TeslaGatewayMetricsService
         {
             throw new MetricRequestFailedException($"Failed to pull {results.Count(r => !r)}/{results.Length} endpoints on gateway");
         }
-        
-        // Request duration metric
-        CreateGauge("apiproxy", "request_duration_ms", "loginCached")
-            .WithLabels("true")
-            .Set(loginCached ? sw.ElapsedMilliseconds : 0);
-        CreateGauge("apiproxy", "request_duration_ms", "loginCached")
-            .WithLabels("false")
-            .Set(loginCached ? 0 : sw.ElapsedMilliseconds);
+
+        SetRequestDurationMetric(loginCached, sw.Elapsed);
 
         // Serialize metrics
         await using var stream = new MemoryStream();
@@ -232,5 +226,23 @@ public class TeslaGatewayMetricsService
         }
 
         return JsonDocument.Parse(responseContent);
+    }
+
+    private void SetRequestDurationMetric(bool loginCached, TimeSpan duration)
+    {
+        // Request duration metric
+        var requestDurationGauge = CreateGauge("apiproxy", "request_duration_ms", "loginCached");
+        var requestDurationGauge_cache = requestDurationGauge.WithLabels("true");
+        var requestDurationGauge_nocache = requestDurationGauge.WithLabels("false");
+        if (loginCached)
+        {
+            requestDurationGauge_cache.Set(duration.TotalMilliseconds);
+            requestDurationGauge_nocache.Unpublish();
+        }
+        else
+        {
+            requestDurationGauge_nocache.Set(duration.TotalMilliseconds);
+            requestDurationGauge_cache.Unpublish();
+        }
     }
 }

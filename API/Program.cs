@@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<TeslaGatewayMetricsService>();
 builder.Services.Configure<LoginRequest>(builder.Configuration.GetSection("TeslaGateway"));
 builder.Services.AddHttpClient(nameof(TeslaGatewayMetricsService), (_, client) => 
 {
@@ -19,17 +20,14 @@ builder.Services.AddHttpClient(nameof(TeslaGatewayMetricsService), (_, client) =
     // Tesla Gateway serves a self-signed cert
     handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
     return handler;
-});
-builder.Services.AddSingleton<TeslaGatewayMetricsService>();
-builder.Services.AddSingleton<CollectorRegistry>(_ =>
+}).UseHttpClientMetrics();
+
+Metrics.DefaultRegistry.SetStaticLabels(new Dictionary<string, string>()
 {
-    var registry = Metrics.NewCustomRegistry();
-    registry.SetStaticLabels(new Dictionary<string, string>()
-    {
-        { "Host", builder.Configuration["TeslaGateway:Host"] }
-    });
-    return registry;
+    { "TeslaGatewayHost", builder.Configuration["TeslaGateway:Host"] }
 });
+
+builder.Services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
 
 var app = builder.Build();
 
