@@ -31,7 +31,7 @@ public class TeslaGatewayMetricsService
         _client = httpClientFactory.CreateClient(nameof(TeslaGatewayMetricsService));
     }
 
-    public async Task<string> CollectAndGetJsonAsync()
+    public async Task<string> CollectAndSerializeMetricsAsync()
     {
         var sw = Stopwatch.StartNew();
         bool loginCached = true;

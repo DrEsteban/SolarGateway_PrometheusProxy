@@ -1,10 +1,12 @@
 ﻿using System.Net.Mime;
 using Microsoft.AspNetCore.Mvc;
+using TeslaGateway_PrometheusProxy.Filters;
 
 namespace TeslaGateway_PrometheusProxy.Controllers;
 
 [ApiController]
 [Route("/metrics")]
+[TypeFilter(typeof(MetricExceptionFilter))]
 public class TeslaGatewayMetricsController : ControllerBase
 {
     private readonly TeslaGatewayMetricsService _metricsService;
@@ -15,16 +17,6 @@ public class TeslaGatewayMetricsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetMetrics()
-    {
-        try
-        {
-            var metrics = await _metricsService.CollectAndGetJsonAsync();
-            return Content(metrics, MediaTypeNames.Application.Json);
-        }
-        catch (MetricRequestFailedException e)
-        {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = e.Message });
-        }
-    }
+    public Task<string> GetMetrics()
+        => _metricsService.CollectAndSerializeMetricsAsync();
 }
