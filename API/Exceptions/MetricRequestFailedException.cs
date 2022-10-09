@@ -1,4 +1,4 @@
-namespace TeslaGateway_PrometheusProxy;
+namespace TeslaGateway_PrometheusProxy.Exceptions;
 
 public class MetricRequestFailedException : Exception
 {

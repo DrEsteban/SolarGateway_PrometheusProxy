@@ -34,6 +34,7 @@ builder.Services.AddSingleton<CollectorRegistry>(_ =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+// Since we have no auth, go ahead and always use developer exception page.
 app.UseDeveloperExceptionPage();
 app.MapControllers();
 

@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Prometheus;
+using TeslaGateway_PrometheusProxy.Exceptions;
 using TeslaGateway_PrometheusProxy.Models;
 
 namespace TeslaGateway_PrometheusProxy;
@@ -31,6 +32,11 @@ public class TeslaGatewayMetricsService
         _client = httpClientFactory.CreateClient(nameof(TeslaGatewayMetricsService));
     }
 
+    /// <summary>
+    /// Collects metrics from the Tesla Gateway and serializes them as Prometheus metrics.
+    /// </summary>
+    /// <exception cref="MetricRequestFailedException">Thrown when the Tesla Gateway returns an unexpected response.</exception>
+    /// <exception cref="Exception"></exception>
     public async Task<string> CollectAndSerializeMetricsAsync()
     {
         var sw = Stopwatch.StartNew();

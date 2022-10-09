@@ -17,6 +17,6 @@ public class TeslaGatewayMetricsController : ControllerBase
     }
 
     [HttpGet]
-    public Task<string> GetMetrics()
-        => _metricsService.CollectAndSerializeMetricsAsync();
+    public async Task<string> GetMetrics()
+        => await _metricsService.CollectAndSerializeMetricsAsync();
 }
