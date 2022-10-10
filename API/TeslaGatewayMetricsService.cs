@@ -10,34 +10,31 @@ using TeslaGateway_PrometheusProxy.Models;
 
 namespace TeslaGateway_PrometheusProxy;
 
-public class TeslaGatewayMetricsService
+public class TeslaGatewayMetricsService : IMetricsService
 {
     private readonly LoginRequest _loginRequest;
     private readonly ILogger<TeslaGatewayMetricsService> _logger;
-    private readonly CollectorRegistry _registry;
     private readonly IMemoryCache _cache;
     private readonly HttpClient _client;
 
     public TeslaGatewayMetricsService(
         IOptions<LoginRequest> loginRequest,
         ILogger<TeslaGatewayMetricsService> logger,
-        CollectorRegistry registry,
         IMemoryCache cache,
         IHttpClientFactory httpClientFactory)
     {
         _loginRequest = loginRequest.Value;
         _logger = logger;
-        _registry = registry;
         _cache = cache;
         _client = httpClientFactory.CreateClient(nameof(TeslaGatewayMetricsService));
     }
 
     /// <summary>
-    /// Collects metrics from the Tesla Gateway and serializes them as Prometheus metrics.
+    /// Collects metrics from the Tesla Gateway saves to the Prometheus <see cref="CollectorRegistry"/>.
     /// </summary>
     /// <exception cref="MetricRequestFailedException">Thrown when the Tesla Gateway returns an unexpected response.</exception>
     /// <exception cref="Exception"></exception>
-    public async Task<string> CollectAndSerializeMetricsAsync()
+    public async Task CollectMetricsAsync(CollectorRegistry collectorRegistry, CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
         bool loginCached = true;
@@ -76,27 +73,20 @@ public class TeslaGatewayMetricsService
 
         // Get metrics
         var results = await Task.WhenAll(
-            PullMeterAggregates(loginResponse),
-            PullPowerwallPercentage(loginResponse),
-            PullSiteInfo(loginResponse),
-            PullStatus(loginResponse),
-            PullOperation(loginResponse));
+            PullMeterAggregates(collectorRegistry, loginResponse),
+            PullPowerwallPercentage(collectorRegistry, loginResponse),
+            PullSiteInfo(collectorRegistry, loginResponse),
+            PullStatus(collectorRegistry, loginResponse),
+            PullOperation(collectorRegistry, loginResponse));
         if (!results.All(r => r))
         {
             throw new MetricRequestFailedException($"Failed to pull {results.Count(r => !r)}/{results.Length} endpoints on gateway");
         }
 
-        SetRequestDurationMetric(loginCached, sw.Elapsed);
-
-        // Serialize metrics
-        await using var stream = new MemoryStream();
-        await _registry.CollectAndExportAsTextAsync(stream);
-        stream.Position = 0;
-        using var reader = new StreamReader(stream);
-        return await reader.ReadToEndAsync();
+        SetRequestDurationMetric(collectorRegistry, loginCached, sw.Elapsed);
     }
     
-    private async Task<bool> PullMeterAggregates(LoginResponse loginResponse)
+    private async Task<bool> PullMeterAggregates(CollectorRegistry registry, LoginResponse loginResponse)
     {
         var metricsDocument = await CallMetricEndpointAsync("/api/meters/aggregates", loginResponse);
         if (metricsDocument is null)
@@ -111,13 +101,13 @@ public class TeslaGatewayMetricsService
                 switch (metric.Value.ValueKind)
                 {
                     case JsonValueKind.Number:
-                        CreateGauge(category.Name, metric.Name).Set(metric.Value.GetDouble());
+                        CreateGauge(registry, category.Name, metric.Name).Set(metric.Value.GetDouble());
                         break;
                     case JsonValueKind.String:
                         // Assumed to be DateTime
                         if (DateTimeOffset.TryParse(metric.Value.GetString(), out var date))
                         {
-                            CreateGauge(category.Name, metric.Name).Set(date.SecondsSinceEpoch());
+                            CreateGauge(registry, category.Name, metric.Name).Set(date.SecondsSinceEpoch());
                         }
 
                         break;
@@ -131,7 +121,7 @@ public class TeslaGatewayMetricsService
         return true;
     }
 
-    private async Task<bool> PullPowerwallPercentage(LoginResponse loginResponse)
+    private async Task<bool> PullPowerwallPercentage(CollectorRegistry registry, LoginResponse loginResponse)
     {
         var metricsDocument = await CallMetricEndpointAsync("/api/system_status/soe", loginResponse);
         if (metricsDocument is null)
@@ -139,11 +129,11 @@ public class TeslaGatewayMetricsService
             return false;
         }
 
-        CreateGauge("powerwall", "percentage").Set(metricsDocument.RootElement.GetProperty("percentage").GetDouble());
+        CreateGauge(registry, "powerwall", "percentage").Set(metricsDocument.RootElement.GetProperty("percentage").GetDouble());
         return true;
     }
 
-    private async Task<bool> PullSiteInfo(LoginResponse loginResponse)
+    private async Task<bool> PullSiteInfo(CollectorRegistry registry, LoginResponse loginResponse)
     {
         var metricsDocument = await CallMetricEndpointAsync("/api/site_info", loginResponse);
         if (metricsDocument is null)
@@ -154,7 +144,7 @@ public class TeslaGatewayMetricsService
         foreach (var metric in metricsDocument.RootElement.EnumerateObject()
                      .Where(p => p.Value.ValueKind == JsonValueKind.Number))
         {
-            CreateGauge("siteinfo", metric.Name).Set(metric.Value.GetDouble());
+            CreateGauge(registry, "siteinfo", metric.Name).Set(metric.Value.GetDouble());
         }
 
         return true;
@@ -162,7 +152,7 @@ public class TeslaGatewayMetricsService
 
     private static Regex UpTimeRegex = new Regex("^(?<hours>[0-9]*)h(?<minutes>[0-9]*)m(?<seconds>[0-9]*)(\\.[0-9]*s)?$", RegexOptions.Compiled);
 
-    private async Task<bool> PullStatus(LoginResponse loginResponse)
+    private async Task<bool> PullStatus(CollectorRegistry registry, LoginResponse loginResponse)
     {
         var metricsDocument = await CallMetricEndpointAsync("/api/status", loginResponse);
         if (metricsDocument is null)
@@ -172,7 +162,7 @@ public class TeslaGatewayMetricsService
 
         if (DateTimeOffset.TryParse(metricsDocument.RootElement.GetProperty("start_time").GetString(), out var startTime))
         {
-            CreateGauge("status", "start_time").Set(startTime.SecondsSinceEpoch());
+            CreateGauge(registry, "status", "start_time").Set(startTime.SecondsSinceEpoch());
         }
 
         var match = UpTimeRegex.Match(metricsDocument.RootElement.GetProperty("up_time_seconds").GetString() ?? string.Empty);
@@ -182,13 +172,13 @@ public class TeslaGatewayMetricsService
             int minutes = int.Parse(match.Groups["minutes"].Value);
             int seconds = int.Parse(match.Groups["seconds"].Value);
             var timeSpan = new TimeSpan(hours, minutes, seconds);
-            CreateGauge("status", "up_time_seconds").Set(timeSpan.TotalSeconds);
+            CreateGauge(registry, "status", "up_time_seconds").Set(timeSpan.TotalSeconds);
         }
 
         return true;
     }
 
-    private async Task<bool> PullOperation(LoginResponse loginResponse)
+    private async Task<bool> PullOperation(CollectorRegistry registry, LoginResponse loginResponse)
     {
         var metricsDocument = await CallMetricEndpointAsync("/api/operation", loginResponse);
         if (metricsDocument is null)
@@ -196,10 +186,10 @@ public class TeslaGatewayMetricsService
             return false;
         }
 
-        CreateGauge("operation", "backup_reserve_percent").Set(metricsDocument.RootElement.GetProperty("backup_reserve_percent").GetDouble());
+        CreateGauge(registry, "operation", "backup_reserve_percent").Set(metricsDocument.RootElement.GetProperty("backup_reserve_percent").GetDouble());
         
         string? mode = metricsDocument.RootElement.GetProperty("real_mode").GetString();
-        var modeGauge = CreateGauge("operation", "mode", "mode");
+        var modeGauge = CreateGauge(registry, "operation", "mode", "mode");
 
         const string selfConsumption = "self_consumption", autonomous = "autonomous", backup = "backup";
         modeGauge.WithLabels(selfConsumption).Set(mode == selfConsumption ? 1 : 0);
@@ -209,8 +199,8 @@ public class TeslaGatewayMetricsService
         return true;
     }
 
-    private Gauge CreateGauge(string category, string metric, params string[] labelNames)
-        => Metrics.WithCustomRegistry(_registry).CreateGauge($"tesla_gateway_{category}_{metric}", metric, labelNames);
+    private Gauge CreateGauge(CollectorRegistry registry, string category, string metric, params string[] labelNames)
+        => Metrics.WithCustomRegistry(registry).CreateGauge($"tesla_gateway_{category}_{metric}", metric, labelNames);
 
     private async Task<JsonDocument?> CallMetricEndpointAsync(string path, LoginResponse loginResponse)
     {
@@ -228,10 +218,10 @@ public class TeslaGatewayMetricsService
         return JsonDocument.Parse(responseContent);
     }
 
-    private void SetRequestDurationMetric(bool loginCached, TimeSpan duration)
+    private void SetRequestDurationMetric(CollectorRegistry registry, bool loginCached, TimeSpan duration)
     {
         // Request duration metric
-        var requestDurationGauge = CreateGauge("apiproxy", "request_duration_ms", "loginCached");
+        var requestDurationGauge = CreateGauge(registry, "apiproxy", "request_duration_ms", "loginCached");
         var requestDurationGauge_cache = requestDurationGauge.WithLabels("true");
         var requestDurationGauge_nocache = requestDurationGauge.WithLabels("false");
         if (loginCached)

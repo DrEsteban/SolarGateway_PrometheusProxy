@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
-builder.Services.AddSingleton<TeslaGatewayMetricsService>();
+builder.Services.AddSingleton<IMetricsService, TeslaGatewayMetricsService>();
 builder.Services.Configure<LoginRequest>(builder.Configuration.GetSection("TeslaGateway"));
 builder.Services.AddHttpClient(nameof(TeslaGatewayMetricsService), (_, client) => 
 {
