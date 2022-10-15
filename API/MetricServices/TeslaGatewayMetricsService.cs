@@ -26,6 +26,8 @@ public class TeslaGatewayMetricsService : BaseMetricsService
         _cache = cache;
     }
 
+    protected override string MetricCategory => "tesla_gateway";
+
     /// <summary>
     /// Collects metrics from the Tesla Gateway saves to the Prometheus <see cref="CollectorRegistry"/>.
     /// </summary>
@@ -80,7 +82,7 @@ public class TeslaGatewayMetricsService : BaseMetricsService
             throw new MetricRequestFailedException($"Failed to pull {results.Count(r => !r)}/{results.Length} endpoints on gateway");
         }
 
-        SetRequestDurationMetric("teslagateway", collectorRegistry, loginCached, sw.Elapsed);
+        SetRequestDurationMetric(collectorRegistry, loginCached, sw.Elapsed);
     }
     
     private async Task<bool> PullMeterAggregates(CollectorRegistry registry, TeslaLoginResponse loginResponse)
