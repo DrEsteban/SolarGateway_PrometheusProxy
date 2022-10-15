@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace TeslaGateway_PrometheusProxy.Models;
+namespace SolarGateway_PrometheusProxy.Models;
 
-public class LoginRequest
+public class TeslaLoginRequest
 {
     [JsonPropertyName("email")]
     public string? Email { get; set; }

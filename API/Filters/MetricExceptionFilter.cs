@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using TeslaGateway_PrometheusProxy.Exceptions;
+using SolarGateway_PrometheusProxy.Exceptions;
 
-namespace TeslaGateway_PrometheusProxy.Filters;
+namespace SolarGateway_PrometheusProxy.Filters;
 
 public class MetricExceptionFilter : IExceptionFilter
 {

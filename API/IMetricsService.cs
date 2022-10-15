@@ -1,6 +1,6 @@
 using Prometheus;
 
-namespace TeslaGateway_PrometheusProxy;
+namespace SolarGateway_PrometheusProxy;
 
 public interface IMetricsService
 {
