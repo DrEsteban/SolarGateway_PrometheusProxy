@@ -25,6 +25,8 @@ public class MetricsController : ControllerBase
             await metricsService.CollectMetricsAsync(_collectorRegistry, HttpContext.RequestAborted);
         }
 
+        HttpContext.RequestAborted.ThrowIfCancellationRequested();
+
         // Serialize metrics
         await _collectorRegistry.CollectAndExportAsTextAsync(Response.Body);
     }

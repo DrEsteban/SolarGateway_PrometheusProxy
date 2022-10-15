@@ -44,8 +44,8 @@ public class TeslaGatewayMetricsService : BaseMetricsService
             loginCached = false;
             using var request = new HttpRequestMessage(HttpMethod.Post, "/api/login/Basic");
             request.Content = JsonContent.Create(_loginRequest);
-            using var response = await _client.SendAsync(request);
-            var responseContent = await response.Content.ReadAsStringAsync();
+            using var response = await _client.SendAsync(request, cancellationToken);
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogError($"Got {response.StatusCode} calling login endpoint: {responseContent}");
@@ -72,22 +72,22 @@ public class TeslaGatewayMetricsService : BaseMetricsService
 
         // Get metrics
         var results = await Task.WhenAll(
-            PullMeterAggregates(collectorRegistry, loginResponse),
-            PullPowerwallPercentage(collectorRegistry, loginResponse),
-            PullSiteInfo(collectorRegistry, loginResponse),
-            PullStatus(collectorRegistry, loginResponse),
-            PullOperation(collectorRegistry, loginResponse));
+            PullMeterAggregates(collectorRegistry, loginResponse, cancellationToken),
+            PullPowerwallPercentage(collectorRegistry, loginResponse, cancellationToken),
+            PullSiteInfo(collectorRegistry, loginResponse, cancellationToken),
+            PullStatus(collectorRegistry, loginResponse, cancellationToken),
+            PullOperation(collectorRegistry, loginResponse, cancellationToken));
         if (!results.All(r => r))
         {
-            throw new MetricRequestFailedException($"Failed to pull {results.Count(r => !r)}/{results.Length} endpoints on gateway");
+            throw new MetricRequestFailedException($"Failed to pull {results.Count(r => !r)}/{results.Length} endpoints on Tesla gateway");
         }
 
         SetRequestDurationMetric(collectorRegistry, loginCached, sw.Elapsed);
     }
     
-    private async Task<bool> PullMeterAggregates(CollectorRegistry registry, TeslaLoginResponse loginResponse)
+    private async Task<bool> PullMeterAggregates(CollectorRegistry registry, TeslaLoginResponse loginResponse, CancellationToken cancellationToken)
     {
-        var metricsDocument = await CallMetricEndpointAsync("/api/meters/aggregates", loginResponse.ToAuthenticationHeader);
+        var metricsDocument = await CallMetricEndpointAsync("/api/meters/aggregates", loginResponse.ToAuthenticationHeader, cancellationToken);
         if (metricsDocument is null)
         {
             return false;
@@ -120,9 +120,9 @@ public class TeslaGatewayMetricsService : BaseMetricsService
         return true;
     }
 
-    private async Task<bool> PullPowerwallPercentage(CollectorRegistry registry, TeslaLoginResponse loginResponse)
+    private async Task<bool> PullPowerwallPercentage(CollectorRegistry registry, TeslaLoginResponse loginResponse, CancellationToken cancellationToken)
     {
-        var metricsDocument = await CallMetricEndpointAsync("/api/system_status/soe", loginResponse.ToAuthenticationHeader);
+        var metricsDocument = await CallMetricEndpointAsync("/api/system_status/soe", loginResponse.ToAuthenticationHeader, cancellationToken);
         if (metricsDocument is null)
         {
             return false;
@@ -132,9 +132,9 @@ public class TeslaGatewayMetricsService : BaseMetricsService
         return true;
     }
 
-    private async Task<bool> PullSiteInfo(CollectorRegistry registry, TeslaLoginResponse loginResponse)
+    private async Task<bool> PullSiteInfo(CollectorRegistry registry, TeslaLoginResponse loginResponse, CancellationToken cancellationToken)
     {
-        var metricsDocument = await CallMetricEndpointAsync("/api/site_info", loginResponse.ToAuthenticationHeader);
+        var metricsDocument = await CallMetricEndpointAsync("/api/site_info", loginResponse.ToAuthenticationHeader, cancellationToken);
         if (metricsDocument is null)
         {
             return false;
@@ -151,9 +151,9 @@ public class TeslaGatewayMetricsService : BaseMetricsService
 
     private static Regex UpTimeRegex = new Regex("^(?<hours>[0-9]*)h(?<minutes>[0-9]*)m(?<seconds>[0-9]*)(\\.[0-9]*s)?$", RegexOptions.Compiled);
 
-    private async Task<bool> PullStatus(CollectorRegistry registry, TeslaLoginResponse loginResponse)
+    private async Task<bool> PullStatus(CollectorRegistry registry, TeslaLoginResponse loginResponse, CancellationToken cancellationToken)
     {
-        var metricsDocument = await CallMetricEndpointAsync("/api/status", loginResponse.ToAuthenticationHeader);
+        var metricsDocument = await CallMetricEndpointAsync("/api/status", loginResponse.ToAuthenticationHeader, cancellationToken);
         if (metricsDocument is null)
         {
             return false;
@@ -177,9 +177,9 @@ public class TeslaGatewayMetricsService : BaseMetricsService
         return true;
     }
 
-    private async Task<bool> PullOperation(CollectorRegistry registry, TeslaLoginResponse loginResponse)
+    private async Task<bool> PullOperation(CollectorRegistry registry, TeslaLoginResponse loginResponse, CancellationToken cancellationToken)
     {
-        var metricsDocument = await CallMetricEndpointAsync("/api/operation", loginResponse.ToAuthenticationHeader);
+        var metricsDocument = await CallMetricEndpointAsync("/api/operation", loginResponse.ToAuthenticationHeader, cancellationToken);
         if (metricsDocument is null)
         {
             return false;

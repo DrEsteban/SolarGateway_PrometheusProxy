@@ -38,7 +38,7 @@ public abstract class BaseMetricsService : IMetricsService
         }
     }
 
-    protected async Task<JsonDocument?> CallMetricEndpointAsync(string path, Func<AuthenticationHeaderValue?> authenticationCallback)
+    protected async Task<JsonDocument?> CallMetricEndpointAsync(string path, Func<AuthenticationHeaderValue?> authenticationCallback, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
         var authHeader = authenticationCallback();
@@ -47,8 +47,8 @@ public abstract class BaseMetricsService : IMetricsService
             request.Headers.Authorization = authHeader;
         }
 
-        using var response = await _client.SendAsync(request);
-        var responseContent = await response.Content.ReadAsStringAsync();
+        using var response = await _client.SendAsync(request, cancellationToken);
+        var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {

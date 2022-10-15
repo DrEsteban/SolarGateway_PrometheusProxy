@@ -8,12 +8,17 @@ public class MetricExceptionFilter : IExceptionFilter
 {
     public void OnException(ExceptionContext context)
     {
-        if (context.Exception is MetricRequestFailedException ex)
+        switch (context.Exception)
         {
-            context.Result = new ObjectResult(new { error = ex.Message })
-            {
-                StatusCode = StatusCodes.Status503ServiceUnavailable
-            };
+            case MetricRequestFailedException ex:
+                context.Result = new ObjectResult(new { error = ex.Message })
+                {
+                    StatusCode = StatusCodes.Status503ServiceUnavailable
+                };
+                break;
+            case OperationCanceledException:
+                context.Result = new BadRequestObjectResult("Request cancelled");
+                break;
         }
     }
 }
