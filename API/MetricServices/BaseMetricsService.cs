@@ -1,7 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using System.Text.Json;
 using Prometheus;
-using SolarGateway_PrometheusProxy.Models;
 
 namespace SolarGateway_PrometheusProxy.MetricServices;
 
