@@ -20,11 +20,7 @@ public class MetricsController : ControllerBase
     [HttpGet]
     public async Task GetMetrics()
     {
-        foreach (var metricsService in _metricsServices)
-        {
-            await metricsService.CollectMetricsAsync(_collectorRegistry, HttpContext.RequestAborted);
-        }
-
+        await Task.WhenAll(_metricsServices.Select(m => m.CollectMetricsAsync(_collectorRegistry, HttpContext.RequestAborted)));
         HttpContext.RequestAborted.ThrowIfCancellationRequested();
 
         // Serialize metrics

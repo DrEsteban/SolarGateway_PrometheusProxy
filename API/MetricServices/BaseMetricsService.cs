@@ -17,12 +17,12 @@ public abstract class BaseMetricsService : IMetricsService
     public abstract Task CollectMetricsAsync(CollectorRegistry collectorRegistry, CancellationToken cancellationToken = default);
 
     protected Gauge CreateGauge(CollectorRegistry registry, string subCategory, string metric, params string[] labelNames)
-        => Metrics.WithCustomRegistry(registry).CreateGauge($"{MetricCategory}_{subCategory}_{metric}", metric, labelNames);
+        => Metrics.WithCustomRegistry(registry).CreateGauge($"solarapiproxy_{MetricCategory}_{subCategory}_{metric}", metric, labelNames);
 
     protected void SetRequestDurationMetric(CollectorRegistry registry, bool loginCached, TimeSpan duration)
     {
         // Request duration metric
-        var requestDurationGauge = CreateGauge(registry, $"apiproxy_{MetricCategory}", "request_duration_ms", "loginCached");
+        var requestDurationGauge = CreateGauge(registry, "request", "duration_ms", "loginCached");
         var requestDurationGauge_cache = requestDurationGauge.WithLabels("true");
         var requestDurationGauge_nocache = requestDurationGauge.WithLabels("false");
         if (loginCached)
