@@ -1,0 +1,25 @@
+scrape_configs:
+  - job_name: SolarGatewayMetrics
+    scrape_interval: 3s
+    scheme: http
+    static_configs:
+      - targets:
+          - solargatewayproxy
+        labels:
+          job: SolarGatewayMetrics
+  - job_name: Grafana
+    scrape_interval: 10s
+    scheme: http
+    static_configs:
+      - targets:
+          - grafana:3000
+        labels:
+          job: Grafana
+  - job_name: Prometheus
+    scrape_interval: 10s
+    scheme: http
+    static_configs:
+      - targets:
+          - localhost:9090
+        labels:
+          job: Prometheus

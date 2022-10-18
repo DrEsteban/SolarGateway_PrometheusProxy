@@ -1,0 +1,49 @@
+version: "3"
+
+services:
+  solargatewayproxy:
+    container_name: solargatewayproxy
+    image: <replace_me>:latest
+    ports:
+      - 5026:80
+    environment:
+      - "TeslaGateway__Enabled=true"
+      - "TeslaGateway__Email=<email>"
+      - "TeslaGateway__Password=<password>"
+      - "TeslaGateway__Host=<host_or_ip>"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    user: "1026:101"
+    ports:
+      - 9090:9090
+    volumes:
+      - '/path/to/mnt/prometheus-data:/prometheus'
+      - '/path/to/mnt/prometheus.yml:/config/prometheus.yml'
+    command:
+      - '--config.file=/config/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=730d'
+    depends_on:
+      - solargatewayproxy
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    user: "1026:101"
+    command:
+      - '--config=/etc/grafana/grafana_custom.ini'
+    ports:
+      - 3000:3000
+    volumes:
+      - '/path/to/mnt/grafana-data:/var/lib/grafana'
+      - '/path/to/mnt/grafana.yml:/etc/grafana/provisioning/datasources/datasource.yaml'
+      - '/path/to/mnt/grafana_custom.ini:/etc/grafana/grafana_custom.ini'
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=<password>
+    depends_on:
+      - prometheus
+    restart: unless-stopped
