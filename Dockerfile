@@ -6,7 +6,6 @@ COPY ./API .
 RUN dotnet publish "SolarGateway_PrometheusProxy.csproj" -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
-RUN apt-get update && apt-get install curl -y
 WORKDIR /app
 EXPOSE 80
 COPY --from=build /app/publish .
