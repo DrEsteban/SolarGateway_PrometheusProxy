@@ -133,7 +133,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "tesla_gateway_solar_instant_power / 1000",
+          "expr": "solarapiproxy_tesla_gateway_solar_instant_power / 1000 or tesla_gateway_solar_instant_power / 1000",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -151,7 +151,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "fixedColor": "orange",
+            "fixedColor": "yellow",
             "mode": "fixed"
           },
           "mappings": [],
@@ -198,7 +198,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "tesla_gateway_load_instant_power / 1000",
+          "expr": "solarapiproxy_tesla_gateway_load_instant_power / 1000 or tesla_gateway_load_instant_power / 1000",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -266,7 +266,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "tesla_gateway_site_instant_power / 1000",
+          "expr": "solarapiproxy_tesla_gateway_site_instant_power / 1000 or tesla_gateway_site_instant_power / 1000",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -291,8 +291,80 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "kwatth"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "id": 34,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.1.6",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(increase(solarapiproxy_tesla_gateway_site_energy_exported[$__range]) / 1000) - sum(increase(solarapiproxy_tesla_gateway_site_energy_imported[$__range]) / 1000) or sum(increase(tesla_gateway_site_energy_exported[$__range]) / 1000) - sum(increase(tesla_gateway_site_energy_imported[$__range]) / 1000)",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Grid energy delta",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
               }
             ]
           },
@@ -303,7 +375,7 @@
       "gridPos": {
         "h": 3,
         "w": 4,
-        "x": 12,
+        "x": 16,
         "y": 0
       },
       "id": 26,
@@ -330,7 +402,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "tesla_gateway_battery_instant_power / 1000 * -1",
+          "expr": "solarapiproxy_tesla_gateway_battery_instant_power / 1000 * -1 or tesla_gateway_battery_instant_power / 1000 * -1",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -367,7 +439,7 @@
       "gridPos": {
         "h": 3,
         "w": 4,
-        "x": 16,
+        "x": 20,
         "y": 0
       },
       "id": 33,
@@ -394,7 +466,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "tesla_gateway_powerwall_percentage",
+          "expr": "solarapiproxy_tesla_gateway_powerwall_percentage or tesla_gateway_powerwall_percentage",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -458,7 +530,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "increase(tesla_gateway_solar_energy_exported[$__range]) / 1000",
+          "expr": "sum(increase(solarapiproxy_tesla_gateway_solar_energy_exported[$__range]) / 1000) or sum(increase(tesla_gateway_solar_energy_exported[$__range]) / 1000)",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -522,7 +594,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "increase(tesla_gateway_site_energy_exported[$__range]) / 1000",
+          "expr": "sum(increase(solarapiproxy_tesla_gateway_site_energy_exported[$__range]) / 1000) or sum(increase(tesla_gateway_site_energy_exported[$__range]) / 1000)",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -586,7 +658,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "increase(tesla_gateway_site_energy_imported[$__range]) / 1000",
+          "expr": "sum(increase(solarapiproxy_tesla_gateway_site_energy_imported[$__range]) / 1000) or sum(increase(tesla_gateway_site_energy_imported[$__range]) / 1000)",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -677,7 +749,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "tesla_gateway_solar_instant_power / 1000",
+          "expr": "avg(solarapiproxy_tesla_gateway_solar_instant_power / 1000) or avg(tesla_gateway_solar_instant_power / 1000)",
           "legendFormat": "Solar",
           "range": true,
           "refId": "instant_power"
@@ -800,7 +872,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "tesla_gateway_battery_instant_power / 1000 * -1",
+          "expr": "avg(solarapiproxy_tesla_gateway_battery_instant_power / 1000 * -1) or avg(tesla_gateway_battery_instant_power / 1000 * -1)",
           "instant": false,
           "legendFormat": "Power flow",
           "range": true,
@@ -895,7 +967,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "tesla_gateway_load_instant_power / 1000",
+          "expr": "avg(solarapiproxy_tesla_gateway_load_instant_power / 1000) or avg(tesla_gateway_load_instant_power / 1000)",
           "legendFormat": "Load",
           "range": true,
           "refId": "A"
@@ -990,7 +1062,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "tesla_gateway_powerwall_percentage",
+          "expr": "avg(solarapiproxy_tesla_gateway_powerwall_percentage) or avg(tesla_gateway_powerwall_percentage)",
           "legendFormat": "Battery %",
           "range": true,
           "refId": "A"
@@ -1033,7 +1105,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           }
@@ -1069,8 +1142,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "editorMode": "builder",
-          "expr": "label_replace(label_replace(tesla_gateway_operation_mode{mode=~\"autonomous|self_consumption\"}, \"mode\", \"Time-based\", \"mode\", \"autonomous\"), \"mode\", \"Self powered\", \"mode\", \"self_consumption\")",
+          "editorMode": "code",
+          "expr": "avg(label_replace(label_replace(solarapiproxy_tesla_gateway_operation_mode{mode=~\"autonomous|self_consumption\"}, \"mode\", \"Time-based\", \"mode\", \"autonomous\"), \"mode\", \"Self powered\", \"mode\", \"self_consumption\")) by (mode) or avg(label_replace(label_replace(tesla_gateway_operation_mode{mode=~\"autonomous|self_consumption\"}, \"mode\", \"Time-based\", \"mode\", \"autonomous\"), \"mode\", \"Self powered\", \"mode\", \"self_consumption\")) by (mode)",
           "hide": false,
           "legendFormat": "{{mode}}",
           "range": true,
@@ -1125,7 +1198,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1163,7 +1237,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "tesla_gateway_site_instant_power / 1000",
+          "expr": "avg(solarapiproxy_tesla_gateway_site_instant_power / 1000) or avg(tesla_gateway_site_instant_power / 1000)",
           "legendFormat": "Grid",
           "range": true,
           "refId": "A"
@@ -1187,7 +1261,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1225,7 +1300,7 @@
           },
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "tesla_gateway_status_up_time_seconds",
+          "expr": "solarapiproxy_tesla_gateway_status_up_time_seconds or tesla_gateway_status_up_time_seconds",
           "format": "time_series",
           "instant": true,
           "legendFormat": "__auto",
@@ -1251,7 +1326,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1289,7 +1365,7 @@
           },
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "tesla_gateway_status_start_time * 1000",
+          "expr": "solarapiproxy_tesla_gateway_status_start_time * 1000 or tesla_gateway_status_start_time * 1000",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -1345,13 +1421,45 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
           "unit": "ms"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Login cached true"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Login cached false"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -1380,7 +1488,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "tesla_gateway_apiproxy_request_duration_ms{loginCached=~\"false|true\"}",
+          "expr": "avg(solarapiproxy_tesla_gateway_apiproxy_request_duration_ms{loginCached=~\"false|true\"}) by (loginCached) or avg(tesla_gateway_apiproxy_request_duration_ms{loginCached=~\"false|true\"}) by (loginCached)",
           "format": "time_series",
           "legendFormat": "Login cached {{loginCached}}",
           "range": true,
@@ -1405,7 +1513,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1441,9 +1550,9 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": false,
-          "expr": "avg_over_time(tesla_gateway_apiproxy_request_duration_ms{loginCached=\"true\"}[$__range])",
+          "expr": "avg(avg_over_time(solarapiproxy_tesla_gateway_apiproxy_request_duration_ms{loginCached=\"true\"}[$__range])) or avg(avg_over_time(tesla_gateway_apiproxy_request_duration_ms{loginCached=\"true\"}[$__range]))",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -1462,7 +1571,7 @@
     "list": []
   },
   "time": {
-    "from": "now-24h",
+    "from": "now-30d",
     "to": "now"
   },
   "timepicker": {
@@ -1481,6 +1590,6 @@
   "timezone": "",
   "title": "Powerwall",
   "uid": "Yp4ifb44k",
-  "version": 42,
+  "version": 47,
   "weekStart": ""
 }
