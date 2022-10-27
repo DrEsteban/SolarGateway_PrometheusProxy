@@ -1488,7 +1488,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "avg(solarapiproxy_tesla_gateway_apiproxy_request_duration_ms{loginCached=~\"false|true\"}) by (loginCached) or avg(tesla_gateway_apiproxy_request_duration_ms{loginCached=~\"false|true\"}) by (loginCached)",
+          "expr": "avg(solarapiproxy_tesla_gateway_request_duration_ms{loginCached=~\"false|true\"}) by (loginCached) or avg(tesla_gateway_apiproxy_request_duration_ms{loginCached=~\"false|true\"}) by (loginCached)",
           "format": "time_series",
           "legendFormat": "Login cached {{loginCached}}",
           "range": true,
@@ -1552,7 +1552,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg(avg_over_time(solarapiproxy_tesla_gateway_apiproxy_request_duration_ms{loginCached=\"true\"}[$__range])) or avg(avg_over_time(tesla_gateway_apiproxy_request_duration_ms{loginCached=\"true\"}[$__range]))",
+          "expr": "avg(avg_over_time(solarapiproxy_tesla_gateway_request_duration_ms{loginCached=\"true\"}[$__range])) or avg(avg_over_time(tesla_gateway_apiproxy_request_duration_ms{loginCached=\"true\"}[$__range]))",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -1571,7 +1571,7 @@
     "list": []
   },
   "time": {
-    "from": "now-30d",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {
@@ -1590,6 +1590,6 @@
   "timezone": "",
   "title": "Powerwall",
   "uid": "Yp4ifb44k",
-  "version": 47,
+  "version": 49,
   "weekStart": ""
 }
