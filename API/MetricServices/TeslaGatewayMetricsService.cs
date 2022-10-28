@@ -13,16 +13,19 @@ public class TeslaGatewayMetricsService : BaseMetricsService
 {
     private readonly TeslaLoginRequest _loginRequest;
     private readonly IMemoryCache _cache;
+    private readonly TimeSpan _loginCacheLength;
 
     public TeslaGatewayMetricsService(
         IOptions<TeslaLoginRequest> loginRequest,
         ILogger<TeslaGatewayMetricsService> logger,
         IMemoryCache cache,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        IOptions<TeslaConfiguration> configuration)
         : base(httpClientFactory.CreateClient(nameof(TeslaGatewayMetricsService)), logger)
     {
         _loginRequest = loginRequest.Value;
         _cache = cache;
+        _loginCacheLength = TimeSpan.FromMinutes(configuration.Value.LoginCacheMinutes);
     }
 
     protected override string MetricCategory => "tesla_gateway";
@@ -53,7 +56,7 @@ public class TeslaGatewayMetricsService : BaseMetricsService
                 return null;
             }
 
-            e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+            e.AbsoluteExpirationRelativeToNow = _loginCacheLength;
             return JsonSerializer.Deserialize<TeslaLoginResponse>(responseContent);
         });
 

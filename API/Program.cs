@@ -15,8 +15,9 @@ var staticLabels = new Dictionary<string, string>();
 // Tesla
 if (builder.Configuration.GetValue<bool>("TeslaGateway:Enabled"))
 {
-    builder.Services.AddSingleton<IMetricsService, TeslaGatewayMetricsService>();
+    builder.Services.AddScoped<IMetricsService, TeslaGatewayMetricsService>();
     builder.Services.Configure<TeslaLoginRequest>(builder.Configuration.GetSection("TeslaGateway"));
+    builder.Services.Configure<TeslaConfiguration>(builder.Configuration.GetSection("TeslaGateway"));
     builder.Services.AddHttpClient(nameof(TeslaGatewayMetricsService), (_, client) =>
     {
         client.BaseAddress = new Uri($"https://{builder.Configuration["TeslaGateway:Host"]}");
@@ -36,7 +37,7 @@ if (builder.Configuration.GetValue<bool>("TeslaGateway:Enabled"))
 // Enphase
 if (builder.Configuration.GetValue<bool>("Enphase:Enabled"))
 {
-    builder.Services.AddSingleton<IMetricsService, EnphaseMetricsService>();
+    builder.Services.AddScoped<IMetricsService, EnphaseMetricsService>();
     builder.Services.AddHttpClient(nameof(EnphaseMetricsService), (_, client) =>
     {
         client.BaseAddress = new Uri($"http://{builder.Configuration["Enphase:Host"]}");
