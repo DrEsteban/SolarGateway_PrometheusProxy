@@ -18,6 +18,7 @@ public class MetricsController : ControllerBase
         => (_metricsServices, _collectorRegistry) = (metricsService, collectorRegistry);
 
     [HttpGet]
+    [ResponseCache(CacheProfileName = "default")]
     public async Task GetMetrics()
     {
         await Task.WhenAll(_metricsServices.Select(m => m.CollectMetricsAsync(_collectorRegistry, HttpContext.RequestAborted)));

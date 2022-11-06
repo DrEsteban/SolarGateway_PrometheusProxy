@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Prometheus;
 using SolarGateway_PrometheusProxy;
 using SolarGateway_PrometheusProxy.MetricServices;
@@ -5,8 +6,17 @@ using SolarGateway_PrometheusProxy.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Optional configuration override file
+builder.Configuration.AddJsonFile("custom.json", optional: true);
+
 // Add common services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers(c =>
+{
+    c.CacheProfiles.Add("default", new CacheProfile()
+    {
+        Duration = builder.Configuration.GetValue<int>("ResponseCacheDurationSeconds")
+    });
+});
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
 
@@ -54,6 +64,7 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 // Since we have no auth, go ahead and always use developer exception page.
 app.UseDeveloperExceptionPage();
+app.UseResponseCaching();
 app.MapControllers();
 
 app.Run();
