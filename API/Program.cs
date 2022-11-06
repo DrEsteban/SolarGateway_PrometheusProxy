@@ -12,10 +12,18 @@ builder.Configuration.AddJsonFile("custom.json", optional: true);
 // Add common services to the container.
 builder.Services.AddControllers(c =>
 {
-    c.CacheProfiles.Add("default", new CacheProfile()
+    var profile = new CacheProfile()
     {
         Duration = builder.Configuration.GetValue<int>("ResponseCacheDurationSeconds")
-    });
+    };
+
+    if (profile.Duration <= 0)
+    {
+        profile.Duration = null;
+        profile.NoStore = true;
+    }
+
+    c.CacheProfiles.Add("default", profile);
 });
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
