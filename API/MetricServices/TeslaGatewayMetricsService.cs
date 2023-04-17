@@ -189,13 +189,13 @@ public class TeslaGatewayMetricsService : BaseMetricsService
 
         CreateGauge(registry, "operation", "backup_reserve_percent").Set(metricsDocument.RootElement.GetProperty("backup_reserve_percent").GetDouble());
         
-        string? mode = metricsDocument.RootElement.GetProperty("real_mode").GetString();
-        var modeGauge = CreateGauge(registry, "operation", "mode", "mode");
+        string? realMode = metricsDocument.RootElement.GetProperty("real_mode").GetString();
+        Func<string, Gauge.Child> ModeGauge = (mode) => CreateGauge(registry, "operation", "mode", new KeyValuePair<string, string>("mode", mode));
 
         const string selfConsumption = "self_consumption", autonomous = "autonomous", backup = "backup";
-        modeGauge.WithLabels(selfConsumption).Set(mode == selfConsumption ? 1 : 0);
-        modeGauge.WithLabels(autonomous).Set(mode == autonomous ? 1 : 0);
-        modeGauge.WithLabels(backup).Set(mode == backup ? 1 : 0);
+        ModeGauge(selfConsumption).Set(realMode == selfConsumption ? 1 : 0);
+        ModeGauge(autonomous).Set(realMode == autonomous ? 1 : 0);
+        ModeGauge(backup).Set(realMode == backup ? 1 : 0);
 
         return true;
     }

@@ -28,8 +28,6 @@ builder.Services.AddControllers(c =>
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
 
-var staticLabels = new Dictionary<string, string>();
-
 // Tesla
 if (builder.Configuration.GetValue<bool>("TeslaGateway:Enabled"))
 {
@@ -48,8 +46,6 @@ if (builder.Configuration.GetValue<bool>("TeslaGateway:Enabled"))
         handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
         return handler;
     }).UseHttpClientMetrics();
-
-    staticLabels.Add("TeslaGatewayHost", builder.Configuration["TeslaGateway:Host"]);
 }
 
 // Enphase
@@ -60,11 +56,7 @@ if (builder.Configuration.GetValue<bool>("Enphase:Enabled"))
     {
         client.BaseAddress = new Uri($"http://{builder.Configuration["Enphase:Host"]}");
     }).UseHttpClientMetrics();
-
-    staticLabels.Add("EnphaseHost", builder.Configuration["Enphase:Host"]);
 }
-
-Metrics.DefaultRegistry.SetStaticLabels(staticLabels);
 
 // Build app
 var app = builder.Build();

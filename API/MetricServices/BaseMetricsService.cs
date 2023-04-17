@@ -16,15 +16,19 @@ public abstract class BaseMetricsService : IMetricsService
 
     public abstract Task CollectMetricsAsync(CollectorRegistry collectorRegistry, CancellationToken cancellationToken = default);
 
-    protected Gauge CreateGauge(CollectorRegistry registry, string subCategory, string metric, params string[] labelNames)
-        => Metrics.WithCustomRegistry(registry).CreateGauge($"solarapiproxy_{MetricCategory}_{subCategory}_{metric}", metric, labelNames);
+    protected Gauge.Child CreateGauge(CollectorRegistry registry, string subCategory, string metric, params KeyValuePair<string, string>[] labels)
+    {
+        var labelKeys = labels.Select(l => l.Key).Concat(new[] { $"{this.GetType().Name}Host" }).ToArray();
+        var labelValues = labels.Select(l => l.Value).Concat(new[] { _client.BaseAddress!.Host }).ToArray();
+        return Metrics.WithCustomRegistry(registry).CreateGauge($"solarapiproxy_{MetricCategory}_{subCategory}_{metric}", metric, labelKeys)
+                      .WithLabels(labelValues);
+    }
 
     protected void SetRequestDurationMetric(CollectorRegistry registry, bool loginCached, TimeSpan duration)
     {
         // Request duration metric
-        var requestDurationGauge = CreateGauge(registry, "request", "duration_ms", "loginCached");
-        var requestDurationGauge_cache = requestDurationGauge.WithLabels("true");
-        var requestDurationGauge_nocache = requestDurationGauge.WithLabels("false");
+        var requestDurationGauge_cache = CreateGauge(registry, "request", "duration_ms", new KeyValuePair<string, string>("loginCached", "true"));
+        var requestDurationGauge_nocache = CreateGauge(registry, "request", "duration_ms", new KeyValuePair<string, string>("loginCached", "false"));
         if (loginCached)
         {
             requestDurationGauge_cache.Set(duration.TotalMilliseconds);
