@@ -1,4 +1,8 @@
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+
+ARG TARGETARCH
+ARG BUILDPLATFORM
+
 WORKDIR /src
 COPY ./API/SolarGateway_PrometheusProxy.csproj ./
 RUN dotnet restore -a "$TARGETARCH" "SolarGateway_PrometheusProxy.csproj"
