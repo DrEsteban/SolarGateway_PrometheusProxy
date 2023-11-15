@@ -50,22 +50,16 @@ public class TeslaGatewayMetricsService : BaseMetricsService
             var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError($"Got {response.StatusCode} calling login endpoint: {responseContent}");
-                // Prevent bombarding the login endpoint
-                e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(1);
-                return null;
+                string err = $"Got {response.StatusCode} calling login endpoint: {responseContent}";
+                _logger.LogError(err);
+                throw new MetricRequestFailedException(err);
             }
 
             e.AbsoluteExpirationRelativeToNow = _loginCacheLength;
             return JsonSerializer.Deserialize<TeslaLoginResponse>(responseContent);
         });
 
-        if (loginResponse is null)
-        {
-            throw new MetricRequestFailedException("Login response was null");
-        }
-
-        if (string.IsNullOrEmpty(loginResponse.Token))
+        if (string.IsNullOrEmpty(loginResponse?.Token))
         {
             string err = $"Failed to parse {nameof(TeslaLoginResponse)} for valid token";
             _logger.LogError(err);
