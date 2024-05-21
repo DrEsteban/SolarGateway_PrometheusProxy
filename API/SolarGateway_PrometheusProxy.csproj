@@ -9,6 +9,10 @@
     <PublishSingleFile>true</PublishSingleFile>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="prometheus-net" Version="8.2.1" />
   </ItemGroup>

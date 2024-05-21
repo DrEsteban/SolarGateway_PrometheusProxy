@@ -75,7 +75,7 @@ jobs:
         tar -czvf ./release/osx-x64.tar.gz ./publish/osx-x64
         tar -czvf ./release/osx-arm64.tar.gz ./publish/osx-arm64
     - name: Push version tag
-      run: git tag ${{ steps.set_version.outputs.version_tag }} && git push origin ${{ steps.set_version.outputs.version_tag }}
+      run: git tag ${{ steps.set_version.outputs.version_tag }} && git push origin ${{ steps.set_version.outputs.version_tag }} || true
     - name: Create GitHub Release
       uses: ncipollo/release-action@v1.14.0
       with:
