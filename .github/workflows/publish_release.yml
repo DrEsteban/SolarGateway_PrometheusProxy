@@ -18,6 +18,9 @@ on:
         required: false
         default: 'v'
 
+permissions:
+  contents: write
+
 jobs:
   release:
 
@@ -25,8 +28,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: true
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
@@ -39,7 +40,7 @@ jobs:
       run: dotnet test --no-build --verbosity normal
     - name: Generate Semantic Version
       id: generate_semver
-      if: ${{ inputs.version == 'v' }}
+      if: ${{ inputs.version == 'v' && github.event_name == 'workflow_dispatch' }}
       uses: zwaldowski/semver-release-action@v4
       with:
         github_token: ${{ secrets.GITHUBTOKEN }}
@@ -73,13 +74,14 @@ jobs:
         tar -czvf ./release/linux-x64.tar.gz ./publish/linux-x64
         tar -czvf ./release/osx-x64.tar.gz ./publish/osx-x64
         tar -czvf ./release/osx-arm64.tar.gz ./publish/osx-arm64
+    - name: Push version tag
+      run: git tag ${{ steps.set_version.outputs.version_tag }} && git push origin ${{ steps.set_version.outputs.version_tag }}
     - name: Create GitHub Release
       uses: ncipollo/release-action@v1.14.0
       with:
         artifacts: ./release/*
         token: ${{ secrets.GITHUBTOKEN }}
         tag: ${{ steps.set_version.outputs.version_tag }}
-        commit: ${{ github.sha }}
         generateReleaseNotes: true
         draft: ${{ inputs.draft }}
         prerelease: false
