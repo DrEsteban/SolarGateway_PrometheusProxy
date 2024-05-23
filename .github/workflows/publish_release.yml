@@ -129,6 +129,10 @@ jobs:
         tag: ${{ steps.set_version.outputs.version_tag }}
         commit: ${{ github.sha }}
         generateReleaseNotes: true
+        body: |
+          Release ${{ steps.set_version.outputs.version_tag }}
+          
+          Docker image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.set_version.outputs.version_tag }}
         draft: ${{ inputs.draft }}
         prerelease: false
         allowUpdates: true
