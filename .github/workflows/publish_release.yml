@@ -120,6 +120,15 @@ jobs:
         subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         subject-digest: ${{ steps.push.outputs.digest }}
         push-to-registry: true
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v3.1.1
+      with:
+        cosign-release: 'v2.2.4'
+    - name: Sign the published Docker image
+      env:
+        TAGS: ${{ steps.meta.outputs.tags }}
+        DIGEST: ${{ steps.push.outputs.digest }}
+      run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
 
     # Release
     - id: dockertag
