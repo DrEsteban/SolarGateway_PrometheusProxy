@@ -122,6 +122,8 @@ jobs:
         push-to-registry: true
 
     # Release
+    - id: dockertag
+      run: echo "tag=$(echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.set_version.outputs.version_tag }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
     - name: Create GitHub Release
       uses: ncipollo/release-action@v1.14.0
       with:
@@ -135,7 +137,7 @@ jobs:
           
           #### Docker image: 
           ```
-          ${{ steps.meta.outputs.tags[1] }}
+          ${{ steps.dockertag.outputs.tag }}
           ```
         draft: ${{ inputs.draft }}
         prerelease: false
