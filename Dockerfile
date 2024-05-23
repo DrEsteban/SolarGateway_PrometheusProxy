@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
 
 ARG TARGETARCH
 
@@ -8,8 +8,11 @@ RUN dotnet restore -a "$TARGETARCH" "SolarGateway_PrometheusProxy.csproj"
 COPY ./API .
 RUN dotnet publish -a "$TARGETARCH" "SolarGateway_PrometheusProxy.csproj" -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS base
+RUN apk add --no-cache curl
 WORKDIR /app
-EXPOSE 80
+ENV ASPNETCORE_HTTP_PORTS=8080
+EXPOSE $ASPNETCORE_HTTP_PORTS
+HEALTHCHECK --interval=10s CMD curl --fail "http://localhost:$ASPNETCORE_HTTP_PORTS/health" || exit 1
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "SolarGateway_PrometheusProxy.dll"]

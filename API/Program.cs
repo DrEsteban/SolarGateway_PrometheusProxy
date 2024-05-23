@@ -25,6 +25,7 @@ builder.Services.AddControllers(c =>
 
     c.CacheProfiles.Add("default", profile);
 });
+builder.Services.AddHealthChecks();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
 
@@ -64,6 +65,7 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 // Since we have no auth, go ahead and always use developer exception page.
 app.UseDeveloperExceptionPage();
+app.UseHealthChecks("/health");
 app.UseResponseCaching();
 app.MapControllers();
 
