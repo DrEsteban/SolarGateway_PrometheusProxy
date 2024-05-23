@@ -135,7 +135,7 @@ jobs:
           
           #### Docker image: 
           ```
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.set_version.outputs.version_tag }}
+          ${{ steps.meta.outputs.tags[1] }}
           ```
         draft: ${{ inputs.draft }}
         prerelease: false
