@@ -103,7 +103,7 @@ jobs:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
           latest
-          ${{ steps.set_version.outputs.version_tag }}
+          ${{ steps.set_version.outputs.version_tag }}${{ github.ref_type == 'branch' && format('\n{0}', github.ref_name) || ''}}
     - name: Build Docker image
       id: push
       uses: docker/build-push-action@v5.3.0
