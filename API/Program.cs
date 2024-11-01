@@ -1,4 +1,8 @@
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.Mvc;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Prometheus;
 using SolarGateway_PrometheusProxy;
 using SolarGateway_PrometheusProxy.MetricServices;
@@ -9,8 +13,48 @@ var builder = WebApplication.CreateBuilder(args);
 // Optional configuration override file
 builder.Configuration.AddJsonFile("custom.json", optional: true);
 
-// Add common services to the container.
-builder.Services.AddControllers(c =>
+// Add services to the container.
+var services = builder.Services;
+
+// Telemetry
+services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
+string? appInsightsConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+services.AddOpenTelemetry()
+    .ConfigureResource(rb =>
+    {
+        rb.AddService(builder.Environment.ApplicationName, serviceNamespace: "DrEsteban")
+            .AddEnvironmentVariableDetector()
+            .AddTelemetrySdk()
+            .AddAttributes([KeyValuePair.Create<string, object>("host.environment", builder.Environment.EnvironmentName)]);
+    })
+    .WithLogging(o =>
+    {
+        if (!string.IsNullOrWhiteSpace(appInsightsConnectionString))
+        {
+            o.AddAzureMonitorLogExporter(o => o.ConnectionString = appInsightsConnectionString);
+        }
+    })
+    .WithTracing(o =>
+    {
+        o.AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation();
+        if (!string.IsNullOrWhiteSpace(appInsightsConnectionString))
+        {
+            o.AddAzureMonitorTraceExporter(o => o.ConnectionString = appInsightsConnectionString);
+        }
+    })
+    .WithMetrics(o =>
+    {
+        o.AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation();
+        if (!string.IsNullOrWhiteSpace(appInsightsConnectionString))
+        {
+            o.AddAzureMonitorMetricExporter(o => o.ConnectionString = appInsightsConnectionString);
+        }
+    });
+
+// Http
+services.AddControllers(c =>
 {
     var profile = new CacheProfile()
     {
@@ -25,17 +69,16 @@ builder.Services.AddControllers(c =>
 
     c.CacheProfiles.Add("default", profile);
 });
-builder.Services.AddHealthChecks();
-builder.Services.AddMemoryCache();
-builder.Services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
+services.AddHealthChecks();
+services.AddMemoryCache();
 
+// Collectors:
 // Tesla
 if (builder.Configuration.GetValue<bool>("TeslaGateway:Enabled"))
 {
-    builder.Services.AddScoped<IMetricsService, TeslaGatewayMetricsService>();
-    builder.Services.Configure<TeslaLoginRequest>(builder.Configuration.GetSection("TeslaGateway"));
-    builder.Services.Configure<TeslaConfiguration>(builder.Configuration.GetSection("TeslaGateway"));
-    builder.Services.AddHttpClient(nameof(TeslaGatewayMetricsService), (_, client) =>
+    services.Configure<TeslaLoginRequest>(builder.Configuration.GetSection("TeslaGateway"));
+    services.Configure<TeslaConfiguration>(builder.Configuration.GetSection("TeslaGateway"));
+    services.AddHttpClient<TeslaGatewayMetricsService>(client =>
     {
         client.BaseAddress = new Uri($"https://{builder.Configuration["TeslaGateway:Host"]}");
         // The Tesla Gateway only accepts a certain set of Host header values
@@ -47,16 +90,17 @@ if (builder.Configuration.GetValue<bool>("TeslaGateway:Enabled"))
         handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
         return handler;
     }).UseHttpClientMetrics();
+    services.AddScoped<IMetricsService, TeslaGatewayMetricsService>();
 }
 
 // Enphase
 if (builder.Configuration.GetValue<bool>("Enphase:Enabled"))
 {
-    builder.Services.AddScoped<IMetricsService, EnphaseMetricsService>();
-    builder.Services.AddHttpClient(nameof(EnphaseMetricsService), (_, client) =>
+    services.AddHttpClient(nameof(EnphaseMetricsService), (_, client) =>
     {
         client.BaseAddress = new Uri($"http://{builder.Configuration["Enphase:Host"]}");
     }).UseHttpClientMetrics();
+    services.AddScoped<IMetricsService, EnphaseMetricsService>();
 }
 
 // Build app

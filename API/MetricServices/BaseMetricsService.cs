@@ -27,8 +27,8 @@ public abstract class BaseMetricsService : IMetricsService
     protected void SetRequestDurationMetric(CollectorRegistry registry, bool loginCached, TimeSpan duration)
     {
         // Request duration metric
-        var requestDurationGauge_cache = CreateGauge(registry, "request", "duration_ms", new KeyValuePair<string, string>("loginCached", "true"));
-        var requestDurationGauge_nocache = CreateGauge(registry, "request", "duration_ms", new KeyValuePair<string, string>("loginCached", "false"));
+        var requestDurationGauge_cache = CreateGauge(registry, "request", "duration_ms", KeyValuePair.Create("loginCached", "true"));
+        var requestDurationGauge_nocache = CreateGauge(registry, "request", "duration_ms", KeyValuePair.Create("loginCached", "false"));
         if (loginCached)
         {
             requestDurationGauge_cache.Set(duration.TotalMilliseconds);
@@ -50,15 +50,15 @@ public abstract class BaseMetricsService : IMetricsService
             request.Headers.Authorization = authHeader;
         }
 
-        using var response = await _client.SendAsync(request, cancellationToken);
-        var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogError($"Got {response.StatusCode} calling '{path}': {responseContent}");
+            _logger.LogError($"Got {response.StatusCode} calling '{path}': {await response.Content.ReadAsStringAsync()}");
             return null;
         }
 
-        return JsonDocument.Parse(responseContent);
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        return await JsonDocument.ParseAsync(responseStream, cancellationToken: cancellationToken);
     }
 }

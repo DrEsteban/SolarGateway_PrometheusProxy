@@ -8,9 +8,9 @@ namespace SolarGateway_PrometheusProxy.MetricServices;
 public class EnphaseMetricsService : BaseMetricsService
 {
     public EnphaseMetricsService(
-        IHttpClientFactory httpClientFactory,
+        HttpClient client,
         ILogger<EnphaseMetricsService> logger)
-        : base(httpClientFactory.CreateClient(nameof(EnphaseMetricsService)), logger)
+        : base(client, logger)
     { }
 
     protected override string MetricCategory => "enphase";
@@ -19,7 +19,7 @@ public class EnphaseMetricsService : BaseMetricsService
     {
         var sw = Stopwatch.StartNew();
 
-        var metricsDocument = await CallMetricEndpointAsync("/production.json", () => null, cancellationToken);
+        using var metricsDocument = await CallMetricEndpointAsync("/production.json", () => null, cancellationToken);
         if (metricsDocument == null)
         {
             throw new MetricRequestFailedException($"Failed to pull metric endpoint endpoints on Enphase gateway");

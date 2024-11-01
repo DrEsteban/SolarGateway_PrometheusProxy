@@ -9,5 +9,5 @@ public class TeslaLoginResponse
     public string? Token { get; set; }
 
     public AuthenticationHeaderValue ToAuthenticationHeader()
-        => new AuthenticationHeaderValue("Bearer", this.Token);
+        => new("Bearer", this.Token);
 }
