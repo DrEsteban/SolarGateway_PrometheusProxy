@@ -6,9 +6,10 @@ The list of currently implemented solar gateways:
 * Tesla
 * Enphase
 
-> WARNING: This app is currently designed to be run in a totally-local Prometheus environent behind a firewall. As such, there is no authentication enforced by this metrics proxy API.
+I've also checked in a few example assets for Docker Compose, Prometheus, and Grafana to show how I'm running it in my own home.
 
-I've checked in a few example assets for Docker Compose, Prometheus, and Grafana configuration to show how I'm running it in my own home.
+> [!WARNING]
+> This app is currently designed to be run in a totally-local Prometheus environent behind a firewall. As such, there is no authentication enforced for callers of the API.
 
 ## Running
 ```sh
