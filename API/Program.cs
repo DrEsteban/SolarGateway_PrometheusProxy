@@ -5,7 +5,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Prometheus;
 using SolarGateway_PrometheusProxy;
-using SolarGateway_PrometheusProxy.MetricServices;
+using SolarGateway_PrometheusProxy.Services;
 using SolarGateway_PrometheusProxy.Models;
 
 var builder = WebApplication.CreateBuilder(args);

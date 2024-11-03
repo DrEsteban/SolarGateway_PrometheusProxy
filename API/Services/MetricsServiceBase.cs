@@ -2,14 +2,17 @@
 using System.Text.Json;
 using Prometheus;
 
-namespace SolarGateway_PrometheusProxy.MetricServices;
+namespace SolarGateway_PrometheusProxy.Services;
 
-public abstract class BaseMetricsService : IMetricsService
+/// <summary>
+/// Base class that provides common functionality for brands that use a REST API to collect metrics.
+/// </summary>
+public abstract class MetricsServiceBase : IMetricsService
 {
     protected readonly HttpClient _client;
     protected readonly ILogger _logger;
 
-    public BaseMetricsService(HttpClient client, ILogger logger)
+    public MetricsServiceBase(HttpClient client, ILogger logger)
         => (_client, _logger) = (client, logger);
 
     protected abstract string MetricCategory { get; }
