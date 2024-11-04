@@ -3,9 +3,9 @@ FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
 ARG TARGETARCH
 
 WORKDIR /src
-COPY ./API/SolarGateway_PrometheusProxy.csproj ./
+COPY ./src/SolarGateway_PrometheusProxy.csproj ./
 RUN dotnet restore -a "$TARGETARCH" "SolarGateway_PrometheusProxy.csproj"
-COPY ./API .
+COPY ./src .
 RUN dotnet publish -a "$TARGETARCH" "SolarGateway_PrometheusProxy.csproj" -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS base

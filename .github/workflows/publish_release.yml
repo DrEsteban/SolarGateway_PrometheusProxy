@@ -60,13 +60,13 @@ jobs:
 
     # Binaries
     - name: Publish Windows
-      run: dotnet publish -r win-x64 /p:Version=${{ steps.set_version.outputs.version }} -o ./publish/win-x64 ./API
+      run: dotnet publish -r win-x64 /p:Version=${{ steps.set_version.outputs.version }} -o ./publish/win-x64 ./src
     - name: Publish Linux
-      run: dotnet publish -r linux-x64 /p:Version=${{ steps.set_version.outputs.version }} -o ./publish/linux-x64 ./API
+      run: dotnet publish -r linux-x64 /p:Version=${{ steps.set_version.outputs.version }} -o ./publish/linux-x64 ./src
     - name: Publish OSX-x64
-      run: dotnet publish -r osx-x64 /p:Version=${{ steps.set_version.outputs.version }} -o ./publish/osx-x64 ./API
+      run: dotnet publish -r osx-x64 /p:Version=${{ steps.set_version.outputs.version }} -o ./publish/osx-x64 ./src
     - name: Publish OSX-ARM
-      run: dotnet publish -r osx-arm64 /p:Version=${{ steps.set_version.outputs.version }} -o ./publish/osx-arm64 ./API
+      run: dotnet publish -r osx-arm64 /p:Version=${{ steps.set_version.outputs.version }} -o ./publish/osx-arm64 ./src
     - name: Generate artifact attestation
       uses: actions/attest-build-provenance@v1
       with:
