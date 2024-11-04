@@ -22,9 +22,9 @@ public partial class TeslaGatewayMetricsService : MetricsServiceBase
         IOptions<TeslaLoginRequest> loginRequest,
         ILogger<TeslaGatewayMetricsService> logger,
         IMemoryCache cache,
-        HttpClient client,
+        IHttpClientFactory clientFactory,
         IOptions<TeslaConfiguration> configuration)
-        : base(client, logger)
+        : base(clientFactory.CreateClient(nameof(TeslaGatewayMetricsService)), logger)
     {
         _loginRequest = loginRequest.Value;
         _cache = cache;

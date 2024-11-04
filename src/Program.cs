@@ -96,7 +96,7 @@ if (builder.Configuration.GetValue<bool>("TeslaGateway:Enabled"))
 // Enphase
 if (builder.Configuration.GetValue<bool>("Enphase:Enabled"))
 {
-    services.AddHttpClient(nameof(EnphaseMetricsService), (_, client) =>
+    services.AddHttpClient<EnphaseMetricsService>(client =>
     {
         client.BaseAddress = new Uri($"http://{builder.Configuration["Enphase:Host"]}");
     }).UseHttpClientMetrics();
