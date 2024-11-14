@@ -1,7 +1,11 @@
 using System.Reflection;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using OpenTelemetry;
+using OpenTelemetry.Instrumentation.AspNetCore;
+using OpenTelemetry.Instrumentation.Http;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -21,48 +25,38 @@ builder.Configuration.AddJsonFile("custom.json", optional: true);
 var services = builder.Services;
 
 // Telemetry
-string? appInsightsConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+services.AddMetrics();
+bool useAzureMonitor = !string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]);
 bool useOtlpExporter = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
-services.AddOpenTelemetry()
+builder.Logging.AddOpenTelemetry(o =>
+{
+    o.ParseStateValues =
+       o.IncludeFormattedMessage =
+       o.IncludeScopes = true;
+});
+var otel = services.AddOpenTelemetry()
     .ConfigureResource(rb =>
     {
-        rb.AddService(
-            builder.Environment.ApplicationName,
-            serviceNamespace: "DrEsteban",
-            serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString())
+        _ = rb.AddService(
+                builder.Environment.ApplicationName,
+                serviceNamespace: "DrEsteban",
+                serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString())
             .AddAttributes([KeyValuePair.Create<string, object>("ASPNETCORE_ENVIRONMENT", builder.Environment.EnvironmentName)])
             .AddContainerDetector()
             .AddEnvironmentVariableDetector()
             .AddHostDetector()
+            .AddOperatingSystemDetector()
             .AddProcessDetector()
             .AddProcessRuntimeDetector()
             .AddTelemetrySdk();
     })
-    .WithLogging(o =>
-    {
-        if (!string.IsNullOrWhiteSpace(appInsightsConnectionString))
-        {
-            o.AddAzureMonitorLogExporter(o => o.ConnectionString = appInsightsConnectionString);
-        }
-        if (useOtlpExporter)
-        {
-            o.AddOtlpExporter();
-        }
-    })
+    .WithLogging()
     .WithTracing(o =>
     {
         o.AddProcessor<MyHttpTraceActivityProcessor>()
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
             .SetErrorStatusOnException();
-        if (!string.IsNullOrWhiteSpace(appInsightsConnectionString))
-        {
-            o.AddAzureMonitorTraceExporter(o => o.ConnectionString = appInsightsConnectionString);
-        }
-        if (useOtlpExporter)
-        {
-            o.AddOtlpExporter();
-        }
     })
     .WithMetrics(o =>
     {
@@ -70,16 +64,24 @@ services.AddOpenTelemetry()
             .AddHttpClientInstrumentation()
             .AddProcessInstrumentation()
             .AddRuntimeInstrumentation();
-        if (!string.IsNullOrWhiteSpace(appInsightsConnectionString))
-        {
-            o.AddAzureMonitorMetricExporter(o => o.ConnectionString = appInsightsConnectionString);
-        }
-        if (useOtlpExporter)
-        {
-            o.AddOtlpExporter();
-        }
     });
-services.AddMetrics();
+if (useAzureMonitor)
+{
+    otel.UseAzureMonitor();
+}
+if (useOtlpExporter)
+{
+    otel.UseOtlpExporter();
+}
+// Instrumentation customizations
+services.Configure<AspNetCoreTraceInstrumentationOptions>(options =>
+{
+    options.RecordException = true;
+});
+services.Configure<HttpClientTraceInstrumentationOptions>(options =>
+{
+    options.RecordException = true;
+});
 
 // Prometheus
 // TODO: Consider refactoring to use OpenTelemetry Prometheus exporter instead of Prometheus client.
