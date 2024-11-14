@@ -88,7 +88,7 @@ services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
 
 // Http
 var responseCacheConfiguration = builder.Configuration.Get<ResponseCacheConfiguration>() ?? new();
-services.AddSingleton<IOptions<ResponseCacheConfiguration>>(new OptionsWrapper<ResponseCacheConfiguration>(responseCacheConfiguration));
+services.AddSingleton<IOptions<ResponseCacheConfiguration>>(Options.Create(responseCacheConfiguration));
 services.AddControllers(c =>
 {
     var profile = new CacheProfile()
@@ -147,7 +147,7 @@ if (builder.Configuration.GetValue<bool>("Enphase:Enabled"))
 }
 
 // Build app
-var app = builder.Build();
+await using var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 // Since we have no auth, go ahead and always use developer exception page.
@@ -155,4 +155,4 @@ app.UseDeveloperExceptionPage();
 app.UseResponseCaching();
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
