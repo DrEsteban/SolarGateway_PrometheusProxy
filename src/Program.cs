@@ -1,12 +1,15 @@
+using System.Reflection;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.Mvc;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Prometheus;
 using SolarGateway_PrometheusProxy;
-using SolarGateway_PrometheusProxy.Services;
 using SolarGateway_PrometheusProxy.Models;
+using SolarGateway_PrometheusProxy.Services;
+using SolarGateway_PrometheusProxy.Support;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,15 +20,22 @@ builder.Configuration.AddJsonFile("custom.json", optional: true);
 var services = builder.Services;
 
 // Telemetry
-services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
 string? appInsightsConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+bool useOtlpExporter = builder.Configuration.GetValue<bool>("OpenTelemetry:UseOtlpExporter");
 services.AddOpenTelemetry()
     .ConfigureResource(rb =>
     {
-        rb.AddService(builder.Environment.ApplicationName, serviceNamespace: "DrEsteban")
+        rb.AddService(
+            builder.Environment.ApplicationName,
+            serviceNamespace: "DrEsteban",
+            serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString())
+            .AddAttributes([KeyValuePair.Create<string, object>("ASPNETCORE_ENVIRONMENT", builder.Environment.EnvironmentName)])
+            .AddContainerDetector()
             .AddEnvironmentVariableDetector()
-            .AddTelemetrySdk()
-            .AddAttributes([KeyValuePair.Create<string, object>("host.environment", builder.Environment.EnvironmentName)]);
+            .AddHostDetector()
+            .AddProcessDetector()
+            .AddProcessRuntimeDetector()
+            .AddTelemetrySdk();
     })
     .WithLogging(o =>
     {
@@ -33,25 +43,45 @@ services.AddOpenTelemetry()
         {
             o.AddAzureMonitorLogExporter(o => o.ConnectionString = appInsightsConnectionString);
         }
+        if (useOtlpExporter)
+        {
+            o.AddOtlpExporter();
+        }
     })
     .WithTracing(o =>
     {
-        o.AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation();
+        o.AddProcessor<MyHttpTraceActivityProcessor>()
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .SetErrorStatusOnException();
         if (!string.IsNullOrWhiteSpace(appInsightsConnectionString))
         {
             o.AddAzureMonitorTraceExporter(o => o.ConnectionString = appInsightsConnectionString);
+        }
+        if (useOtlpExporter)
+        {
+            o.AddOtlpExporter();
         }
     })
     .WithMetrics(o =>
     {
         o.AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation();
+            .AddHttpClientInstrumentation()
+            .AddProcessInstrumentation()
+            .AddRuntimeInstrumentation();
         if (!string.IsNullOrWhiteSpace(appInsightsConnectionString))
         {
             o.AddAzureMonitorMetricExporter(o => o.ConnectionString = appInsightsConnectionString);
         }
+        if (useOtlpExporter)
+        {
+            o.AddOtlpExporter();
+        }
     });
+services.AddMetrics();
+
+// Prometheus
+services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
 
 // Http
 services.AddControllers(c =>
