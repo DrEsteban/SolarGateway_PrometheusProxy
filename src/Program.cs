@@ -22,7 +22,7 @@ var services = builder.Services;
 
 // Telemetry
 string? appInsightsConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
-bool useOtlpExporter = builder.Configuration.GetValue<bool>("OpenTelemetry:UseOtlpExporter");
+bool useOtlpExporter = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
 services.AddOpenTelemetry()
     .ConfigureResource(rb =>
     {
