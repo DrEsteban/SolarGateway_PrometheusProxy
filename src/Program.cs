@@ -106,6 +106,7 @@ services.AddControllers(c =>
 });
 services.AddMemoryCache();
 services.AddHttpContextAccessor();
+services.AddTransient<OutboundHttpClientLogger>();
 
 // Collectors:
 // Tesla
