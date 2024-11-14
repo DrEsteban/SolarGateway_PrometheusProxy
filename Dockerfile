@@ -13,6 +13,6 @@ RUN apk add --no-cache curl
 WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE $ASPNETCORE_HTTP_PORTS
-HEALTHCHECK --interval=10s CMD curl --fail "http://localhost:$ASPNETCORE_HTTP_PORTS/health" || exit 1
+HEALTHCHECK --interval=10s CMD curl --fail --head "http://localhost:$ASPNETCORE_HTTP_PORTS/health" || exit 1
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "SolarGateway_PrometheusProxy.dll"]

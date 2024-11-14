@@ -1,6 +1,7 @@
 using System.Reflection;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -81,14 +82,18 @@ services.AddOpenTelemetry()
 services.AddMetrics();
 
 // Prometheus
+// TODO: Consider refactoring to use OpenTelemetry Prometheus exporter instead of Prometheus client.
+//       Would require re-writing solar metrics as observable .NET Meters.
 services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
 
 // Http
+var responseCacheConfiguration = builder.Configuration.Get<ResponseCacheConfiguration>() ?? new();
+services.AddSingleton<IOptions<ResponseCacheConfiguration>>(new OptionsWrapper<ResponseCacheConfiguration>(responseCacheConfiguration));
 services.AddControllers(c =>
 {
     var profile = new CacheProfile()
     {
-        Duration = builder.Configuration.GetValue<int>("ResponseCacheDurationSeconds")
+        Duration = responseCacheConfiguration.ResponseCacheDurationSeconds
     };
 
     if (profile.Duration <= 0)
@@ -99,8 +104,8 @@ services.AddControllers(c =>
 
     c.CacheProfiles.Add("default", profile);
 });
-services.AddHealthChecks();
 services.AddMemoryCache();
+services.AddHttpContextAccessor();
 
 // Collectors:
 // Tesla
@@ -109,17 +114,21 @@ if (builder.Configuration.GetValue<bool>("TeslaGateway:Enabled"))
     services.Configure<TeslaLoginRequest>(builder.Configuration.GetSection("TeslaGateway"));
     services.Configure<TeslaConfiguration>(builder.Configuration.GetSection("TeslaGateway"));
     services.AddHttpClient<TeslaGatewayMetricsService>(client =>
-    {
-        client.BaseAddress = new Uri($"https://{builder.Configuration["TeslaGateway:Host"]}");
-        // The Tesla Gateway only accepts a certain set of Host header values
-        client.DefaultRequestHeaders.Host = "powerwall";
-    }).ConfigurePrimaryHttpMessageHandler(_ =>
-    {
-        var handler = new HttpClientHandler();
-        // Tesla Gateway serves a self-signed cert
-        handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
-        return handler;
-    }).UseHttpClientMetrics();
+        {
+            client.BaseAddress = new Uri($"https://{builder.Configuration["TeslaGateway:Host"]}");
+            // The Tesla Gateway only accepts a certain set of Host header values
+            client.DefaultRequestHeaders.Host = "powerwall";
+        })
+        .ConfigurePrimaryHttpMessageHandler(_ =>
+        {
+            var handler = new HttpClientHandler();
+            // Tesla Gateway serves a self-signed cert
+            handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+            return handler;
+        })
+        .UseHttpClientMetrics()
+        .RemoveAllLoggers()
+        .AddLogger<OutboundHttpClientLogger>();
     services.AddScoped<IMetricsService, TeslaGatewayMetricsService>();
 }
 
@@ -127,9 +136,12 @@ if (builder.Configuration.GetValue<bool>("TeslaGateway:Enabled"))
 if (builder.Configuration.GetValue<bool>("Enphase:Enabled"))
 {
     services.AddHttpClient<EnphaseMetricsService>(client =>
-    {
-        client.BaseAddress = new Uri($"http://{builder.Configuration["Enphase:Host"]}");
-    }).UseHttpClientMetrics();
+        {
+            client.BaseAddress = new Uri($"http://{builder.Configuration["Enphase:Host"]}");
+        })
+        .UseHttpClientMetrics()
+        .RemoveAllLoggers()
+        .AddLogger<OutboundHttpClientLogger>();
     services.AddScoped<IMetricsService, EnphaseMetricsService>();
 }
 
@@ -139,7 +151,6 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 // Since we have no auth, go ahead and always use developer exception page.
 app.UseDeveloperExceptionPage();
-app.UseHealthChecks("/health");
 app.UseResponseCaching();
 app.MapControllers();
 
