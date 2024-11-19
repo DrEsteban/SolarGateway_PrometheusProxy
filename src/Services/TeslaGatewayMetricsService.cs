@@ -19,12 +19,12 @@ public partial class TeslaGatewayMetricsService : MetricsServiceBase
     private readonly TimeSpan _loginCacheLength;
 
     public TeslaGatewayMetricsService(
+        HttpClient httpClient,
+        IOptions<TeslaConfiguration> configuration,
         IOptions<TeslaLoginRequest> loginRequest,
         ILogger<TeslaGatewayMetricsService> logger,
-        IMemoryCache cache,
-        IHttpClientFactory clientFactory,
-        IOptions<TeslaConfiguration> configuration)
-        : base(clientFactory.CreateClient(nameof(TeslaGatewayMetricsService)), logger)
+        IMemoryCache cache)
+        : base(httpClient, logger)
     {
         _loginRequest = loginRequest.Value;
         _cache = cache;

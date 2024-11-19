@@ -126,7 +126,7 @@ if (configuration.GetValue<bool>("TeslaGateway:Enabled"))
 {
     services.Configure<TeslaLoginRequest>(configuration.GetSection("TeslaGateway"));
     services.Configure<TeslaConfiguration>(configuration.GetSection("TeslaGateway"));
-    services.AddHttpClient<TeslaGatewayMetricsService>(client =>
+    services.AddHttpClient<IMetricsService, TeslaGatewayMetricsService>(client =>
         {
             client.BaseAddress = new Uri($"https://{configuration["TeslaGateway:Host"]}");
             // The Tesla Gateway only accepts a certain set of Host header values
@@ -142,20 +142,18 @@ if (configuration.GetValue<bool>("TeslaGateway:Enabled"))
         .UseHttpClientMetrics()
         .RemoveAllLoggers()
         .AddLogger<OutboundHttpClientLogger>();
-    services.AddScoped<IMetricsService, TeslaGatewayMetricsService>();
 }
 
 // Enphase
 if (configuration.GetValue<bool>("Enphase:Enabled"))
 {
-    services.AddHttpClient<EnphaseMetricsService>(client =>
+    services.AddHttpClient<IMetricsService, EnphaseMetricsService>(client =>
         {
             client.BaseAddress = new Uri($"http://{configuration["Enphase:Host"]}");
         })
         .UseHttpClientMetrics()
         .RemoveAllLoggers()
         .AddLogger<OutboundHttpClientLogger>();
-    services.AddScoped<IMetricsService, EnphaseMetricsService>();
 }
 
 // -----------------

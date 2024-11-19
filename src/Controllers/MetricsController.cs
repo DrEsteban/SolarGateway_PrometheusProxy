@@ -35,12 +35,14 @@ public class MetricsController(
                 e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(_responseCacheConfiguration.ResponseCacheDurationSeconds);
                 return DateTimeOffset.UtcNow;
             });
-        HttpContext.RequestAborted.ThrowIfCancellationRequested();
 
         if (this.Request.Method != HttpMethods.Head)
         {
+            HttpContext.RequestAborted.ThrowIfCancellationRequested();
+
             // Serialize metrics
-            await _collectorRegistry.CollectAndExportAsTextAsync(Response.Body);
+            Response.ContentType = PrometheusConstants.ExporterOpenMetricsContentTypeValue.ToString();
+            await _collectorRegistry.CollectAndExportAsTextAsync(Response.Body, ExpositionFormat.OpenMetricsText, HttpContext.RequestAborted);
         }
     }
 }
