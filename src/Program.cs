@@ -1,9 +1,9 @@
 using System.Reflection;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using OpenTelemetry;
+using OpenTelemetry.Exporter;
 using OpenTelemetry.Instrumentation.AspNetCore;
 using OpenTelemetry.Instrumentation.Http;
 using OpenTelemetry.Logs;
@@ -16,19 +16,25 @@ using SolarGateway_PrometheusProxy.Models;
 using SolarGateway_PrometheusProxy.Services;
 using SolarGateway_PrometheusProxy.Support;
 
+// Create the builder:
 var builder = WebApplication.CreateBuilder(args);
-
-// Optional configuration override file
-builder.Configuration.AddJsonFile("custom.json", optional: true);
-
-// Add services to the container.
+var configuration = builder.Configuration;
+var environment = builder.Environment;
+var logging = builder.Logging;
 var services = builder.Services;
 
+// Optional configuration override file
+configuration.AddJsonFile("custom.json", optional: true);
+
+// Config objects needed during initialization
+var responseCacheConfiguration = configuration.Get<ResponseCacheConfiguration>() ?? new();
+
+// Begin adding services to the container:
 // Telemetry
 services.AddMetrics();
-bool useAzureMonitor = !string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]);
-bool useOtlpExporter = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
-builder.Logging.AddOpenTelemetry(o =>
+bool useAzureMonitor = !string.IsNullOrWhiteSpace(configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]);
+bool useOtlpExporter = !string.IsNullOrWhiteSpace(configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+logging.AddOpenTelemetry(o =>
 {
     o.ParseStateValues =
        o.IncludeFormattedMessage =
@@ -38,10 +44,10 @@ var otel = services.AddOpenTelemetry()
     .ConfigureResource(rb =>
     {
         _ = rb.AddService(
-                builder.Environment.ApplicationName,
+                environment.ApplicationName,
                 serviceNamespace: "DrEsteban",
                 serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString())
-            .AddAttributes([KeyValuePair.Create<string, object>("ASPNETCORE_ENVIRONMENT", builder.Environment.EnvironmentName)])
+            .AddAttributes([KeyValuePair.Create<string, object>("ASPNETCORE_ENVIRONMENT", environment.EnvironmentName)])
             .AddContainerDetector()
             .AddEnvironmentVariableDetector()
             .AddHostDetector()
@@ -63,7 +69,8 @@ var otel = services.AddOpenTelemetry()
         o.AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
             .AddProcessInstrumentation()
-            .AddRuntimeInstrumentation();
+            .AddRuntimeInstrumentation()
+            .AddPrometheusExporter();
     });
 if (useAzureMonitor)
 {
@@ -82,14 +89,17 @@ services.Configure<HttpClientTraceInstrumentationOptions>(options =>
 {
     options.RecordException = true;
 });
+services.Configure<PrometheusAspNetCoreOptions>(options =>
+{
+    options.ScrapeResponseCacheDurationMilliseconds = (int)TimeSpan.FromSeconds(responseCacheConfiguration.ResponseCacheDurationSeconds).TotalMilliseconds;
+});
 
 // Prometheus
 // TODO: Consider refactoring to use OpenTelemetry Prometheus exporter instead of Prometheus client.
 //       Would require re-writing solar metrics as observable .NET Meters.
-services.AddSingleton<CollectorRegistry>(Metrics.DefaultRegistry);
+services.AddSingleton<CollectorRegistry>(Metrics.NewCustomRegistry());
 
 // Http
-var responseCacheConfiguration = builder.Configuration.Get<ResponseCacheConfiguration>() ?? new();
 services.AddSingleton<IOptions<ResponseCacheConfiguration>>(Options.Create(responseCacheConfiguration));
 services.AddControllers(c =>
 {
@@ -112,13 +122,13 @@ services.AddTransient<OutboundHttpClientLogger>();
 
 // Collectors:
 // Tesla
-if (builder.Configuration.GetValue<bool>("TeslaGateway:Enabled"))
+if (configuration.GetValue<bool>("TeslaGateway:Enabled"))
 {
-    services.Configure<TeslaLoginRequest>(builder.Configuration.GetSection("TeslaGateway"));
-    services.Configure<TeslaConfiguration>(builder.Configuration.GetSection("TeslaGateway"));
+    services.Configure<TeslaLoginRequest>(configuration.GetSection("TeslaGateway"));
+    services.Configure<TeslaConfiguration>(configuration.GetSection("TeslaGateway"));
     services.AddHttpClient<TeslaGatewayMetricsService>(client =>
         {
-            client.BaseAddress = new Uri($"https://{builder.Configuration["TeslaGateway:Host"]}");
+            client.BaseAddress = new Uri($"https://{configuration["TeslaGateway:Host"]}");
             // The Tesla Gateway only accepts a certain set of Host header values
             client.DefaultRequestHeaders.Host = "powerwall";
         })
@@ -136,11 +146,11 @@ if (builder.Configuration.GetValue<bool>("TeslaGateway:Enabled"))
 }
 
 // Enphase
-if (builder.Configuration.GetValue<bool>("Enphase:Enabled"))
+if (configuration.GetValue<bool>("Enphase:Enabled"))
 {
     services.AddHttpClient<EnphaseMetricsService>(client =>
         {
-            client.BaseAddress = new Uri($"http://{builder.Configuration["Enphase:Host"]}");
+            client.BaseAddress = new Uri($"http://{configuration["Enphase:Host"]}");
         })
         .UseHttpClientMetrics()
         .RemoveAllLoggers()
@@ -148,13 +158,19 @@ if (builder.Configuration.GetValue<bool>("Enphase:Enabled"))
     services.AddScoped<IMetricsService, EnphaseMetricsService>();
 }
 
-// Build app
+// -----------------
+// Build app:
 await using var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Configure the HTTP request pipeline:
+//
 // Since we have no auth, go ahead and always use developer exception page.
 app.UseDeveloperExceptionPage();
 app.UseResponseCaching();
+// This endpoint provides Prometheus metrics about the app itself.
+// It is not the same as the Controller-based /metrics endpoint that proxies metrics from other services.
+app.UseOpenTelemetryPrometheusScrapingEndpoint("/appmetrics");
 app.MapControllers();
 
+// Run the app:
 await app.RunAsync();
