@@ -8,25 +8,41 @@ public class MyHttpTraceActivityProcessor(IHttpContextAccessor _httpContextAcces
 {
     public override void OnEnd(Activity activity)
     {
-        var context = _httpContextAccessor.HttpContext;
+        var context = _httpContextAccessor?.HttpContext;
         if (context == null)
         {
             return;
         }
 
         // Set Request and Response Headers
-        foreach (var header in context.Request.Headers)
+        if (context.Request?.Headers != null)
         {
-            if (header.Value.Count != 0)
+            foreach (var header in context.Request.Headers)
             {
-                activity.SetTag($"Request-{header.Key}", string.Join(", ", header.Value.Where(h => h != null)));
+                string key = $"Request-{header.Key}";
+                if (header.Value.Count != 0)
+                {
+                    activity.SetTag(key, string.Join(", ", header.Value.Where(h => h != null)));
+                }
+                else
+                {
+                    activity.SetTag(key, string.Empty);
+                }
             }
         }
-        foreach (var header in context.Response.Headers)
+        if (context.Response?.Headers != null)
         {
-            if (header.Value.Count != 0)
+            foreach (var header in context.Response.Headers)
             {
-                activity.SetTag($"Response-{header.Key}", string.Join(", ", header.Value.Where(h => h != null)));
+                string key = $"Response-{header.Key}";
+                if (header.Value.Count != 0)
+                {
+                    activity.SetTag(key, string.Join(", ", header.Value.Where(h => h != null)));
+                }
+                else
+                {
+                    activity.SetTag(key, string.Empty);
+                }
             }
         }
 

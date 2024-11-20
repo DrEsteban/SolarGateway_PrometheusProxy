@@ -45,7 +45,13 @@ public partial class TeslaGatewayMetricsService(
             var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                string err = $"Got {response.StatusCode} calling login endpoint: {responseContent}";
+                string err = $"""
+                    Got {(int)response.StatusCode} ({response.StatusCode}) calling login endpoint:
+                    Body:
+                    {responseContent}
+                    Headers:
+                    {JsonSerializer.Serialize<IDictionary<string, string[]>>(response.Headers.ToDictionary(h => h.Key, h => h.Value.ToArray()), JsonModelContext.Indented.StringArrayDictionary)}
+                    """;
                 _logger.LogError(err);
                 throw new MetricRequestFailedException(err);
             }
