@@ -48,7 +48,7 @@ public partial class TeslaGatewayMetricsService : MetricsServiceBase
         {
             loginCached = false;
             using var request = new HttpRequestMessage(HttpMethod.Post, "/api/login/Basic");
-            request.Content = JsonContent.Create(_loginRequest);
+            request.Content = JsonContent.Create<TeslaLoginRequest>(_loginRequest, JsonModelContext.Default.TeslaLoginRequest);
             using var response = await _client.SendAsync(request, cancellationToken);
             var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
@@ -59,7 +59,7 @@ public partial class TeslaGatewayMetricsService : MetricsServiceBase
             }
 
             e.AbsoluteExpirationRelativeToNow = _loginCacheLength;
-            return JsonSerializer.Deserialize<TeslaLoginResponse>(responseContent);
+            return JsonSerializer.Deserialize<TeslaLoginResponse>(responseContent, JsonModelContext.Default.TeslaLoginResponse);
         });
 
         if (string.IsNullOrEmpty(loginResponse?.Token))

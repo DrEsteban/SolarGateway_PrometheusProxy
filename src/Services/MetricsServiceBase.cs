@@ -1,6 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using System.Text.Json;
 using Prometheus;
+using SolarGateway_PrometheusProxy.Models;
 
 namespace SolarGateway_PrometheusProxy.Services;
 
@@ -61,7 +62,6 @@ public abstract class MetricsServiceBase : IMetricsService
             return null;
         }
 
-        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        return await JsonDocument.ParseAsync(responseStream, cancellationToken: cancellationToken);
+        return await response.Content.ReadFromJsonAsync<JsonDocument>(JsonModelContext.Default.JsonDocument, cancellationToken);
     }
 }
