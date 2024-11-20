@@ -12,24 +12,16 @@ namespace SolarGateway_PrometheusProxy.Services;
 /// <summary>
 /// Provides metrics from a Tesla Gateway and saves them to a Prometheus <see cref="CollectorRegistry"/>.
 /// </summary>
-public partial class TeslaGatewayMetricsService : MetricsServiceBase
+public partial class TeslaGatewayMetricsService(
+    HttpClient httpClient,
+    IOptions<TeslaConfiguration> configuration,
+    IOptions<TeslaLoginRequest> loginRequest,
+    ILogger<TeslaGatewayMetricsService> logger,
+    IMemoryCache cache) : MetricsServiceBase(httpClient, logger)
 {
-    private readonly TeslaLoginRequest _loginRequest;
-    private readonly IMemoryCache _cache;
-    private readonly TimeSpan _loginCacheLength;
-
-    public TeslaGatewayMetricsService(
-        HttpClient httpClient,
-        IOptions<TeslaConfiguration> configuration,
-        IOptions<TeslaLoginRequest> loginRequest,
-        ILogger<TeslaGatewayMetricsService> logger,
-        IMemoryCache cache)
-        : base(httpClient, logger)
-    {
-        _loginRequest = loginRequest.Value;
-        _cache = cache;
-        _loginCacheLength = TimeSpan.FromMinutes(configuration.Value.LoginCacheMinutes);
-    }
+    private readonly TeslaLoginRequest _loginRequest = loginRequest.Value;
+    private readonly IMemoryCache _cache = cache;
+    private readonly TimeSpan _loginCacheLength = TimeSpan.FromMinutes(configuration.Value.LoginCacheMinutes);
 
     protected override string MetricCategory => "tesla_gateway";
 
@@ -89,6 +81,7 @@ public partial class TeslaGatewayMetricsService : MetricsServiceBase
         using var metricsDocument = await base.CallMetricEndpointAsync("/api/meters/aggregates", loginResponse.ToAuthenticationHeader, cancellationToken);
         if (metricsDocument is null)
         {
+            this._logger.LogError("API Meter aggregates document is null");
             return false;
         }
 
@@ -124,6 +117,7 @@ public partial class TeslaGatewayMetricsService : MetricsServiceBase
         using var metricsDocument = await base.CallMetricEndpointAsync("/api/system_status/soe", loginResponse.ToAuthenticationHeader, cancellationToken);
         if (metricsDocument is null)
         {
+            this._logger.LogError("API Powerwall percentage document is null");
             return false;
         }
 
@@ -136,6 +130,7 @@ public partial class TeslaGatewayMetricsService : MetricsServiceBase
         using var metricsDocument = await base.CallMetricEndpointAsync("/api/site_info", loginResponse.ToAuthenticationHeader, cancellationToken);
         if (metricsDocument is null)
         {
+            this._logger.LogError("Site info document is null");
             return false;
         }
 
@@ -156,6 +151,7 @@ public partial class TeslaGatewayMetricsService : MetricsServiceBase
         using var metricsDocument = await base.CallMetricEndpointAsync("/api/status", loginResponse.ToAuthenticationHeader, cancellationToken);
         if (metricsDocument is null)
         {
+            this._logger.LogError("API Status document is null");
             return false;
         }
 
@@ -182,13 +178,14 @@ public partial class TeslaGatewayMetricsService : MetricsServiceBase
         using var metricsDocument = await base.CallMetricEndpointAsync("/api/operation", loginResponse.ToAuthenticationHeader, cancellationToken);
         if (metricsDocument is null)
         {
+            this._logger.LogError("API Operation document is null");
             return false;
         }
 
         base.CreateGauge(registry, "operation", "backup_reserve_percent").Set(metricsDocument.RootElement.GetProperty("backup_reserve_percent").GetDouble());
 
         string? realMode = metricsDocument.RootElement.GetProperty("real_mode").GetString();
-        Func<string, Gauge.Child> GetModeGauge = (mode) => base.CreateGauge(registry, "operation", "mode", KeyValuePair.Create("mode", mode));
+        Gauge.Child GetModeGauge(string mode) => base.CreateGauge(registry, "operation", "mode", KeyValuePair.Create("mode", mode));
 
         const string selfConsumption = "self_consumption", autonomous = "autonomous", backup = "backup";
         GetModeGauge(selfConsumption).Set(realMode == selfConsumption ? 1 : 0);

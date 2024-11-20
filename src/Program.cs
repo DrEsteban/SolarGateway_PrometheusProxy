@@ -134,9 +134,11 @@ if (configuration.GetValue<bool>("TeslaGateway:Enabled"))
         })
         .ConfigurePrimaryHttpMessageHandler(_ =>
         {
-            var handler = new HttpClientHandler();
-            // Tesla Gateway serves a self-signed cert
-            handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+            var handler = new HttpClientHandler
+            {
+                // Tesla Gateway serves a self-signed cert
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+            };
             return handler;
         })
         .UseHttpClientMetrics()

@@ -1,6 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using System.Text.Json;
 using Prometheus;
+using SolarGateway_PrometheusProxy.Exceptions;
 using SolarGateway_PrometheusProxy.Models;
 
 namespace SolarGateway_PrometheusProxy.Services;
@@ -22,8 +23,8 @@ public abstract class MetricsServiceBase : IMetricsService
 
     protected Gauge.Child CreateGauge(CollectorRegistry registry, string subCategory, string metric, params KeyValuePair<string, string>[] labels)
     {
-        var labelKeys = labels.Select(l => l.Key).Concat(new[] { $"{this.GetType().Name}Host" }).ToArray();
-        var labelValues = labels.Select(l => l.Value).Concat(new[] { _client.BaseAddress!.Host }).ToArray();
+        var labelKeys = labels.Select(l => l.Key).Concat([$"{this.GetType().Name}Host"]).ToArray();
+        var labelValues = labels.Select(l => l.Value).Concat([_client.BaseAddress!.Host]).ToArray();
         return Metrics.WithCustomRegistry(registry).CreateGauge($"solarapiproxy_{MetricCategory}_{subCategory}_{metric}", metric, labelKeys)
                       .WithLabels(labelValues);
     }
@@ -47,21 +48,28 @@ public abstract class MetricsServiceBase : IMetricsService
 
     protected async Task<JsonDocument?> CallMetricEndpointAsync(string path, Func<AuthenticationHeaderValue?> authenticationCallback, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, path);
-        var authHeader = authenticationCallback();
-        if (authHeader != null)
+        try
         {
-            request.Headers.Authorization = authHeader;
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            var authHeader = authenticationCallback();
+            if (authHeader != null)
+            {
+                request.Headers.Authorization = authHeader;
+            }
+
+            using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError($"Got {response.StatusCode} calling '{path}': {await response.Content.ReadAsStringAsync()}");
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<JsonDocument>(JsonModelContext.Default.JsonDocument, cancellationToken);
         }
-
-        using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        catch (Exception ex)
         {
-            _logger.LogError($"Got {response.StatusCode} calling '{path}': {await response.Content.ReadAsStringAsync()}");
-            return null;
+            throw new MetricRequestFailedException(ex.Message, ex);
         }
-
-        return await response.Content.ReadFromJsonAsync<JsonDocument>(JsonModelContext.Default.JsonDocument, cancellationToken);
     }
 }
