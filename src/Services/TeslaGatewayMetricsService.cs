@@ -50,8 +50,9 @@ public partial class TeslaGatewayMetricsService(
                 throw new MetricRequestFailedException(err);
             }
 
-            e.AbsoluteExpirationRelativeToNow = _loginCacheLength;
-            return JsonSerializer.Deserialize<TeslaLoginResponse>(responseContent, JsonModelContext.Default.TeslaLoginResponse);
+            var value = JsonSerializer.Deserialize<TeslaLoginResponse>(responseContent, JsonModelContext.Default.TeslaLoginResponse);
+            e.AbsoluteExpirationRelativeToNow = value == null ? TimeSpan.Zero : _loginCacheLength;
+            return value;
         });
 
         if (string.IsNullOrEmpty(loginResponse?.Token))
