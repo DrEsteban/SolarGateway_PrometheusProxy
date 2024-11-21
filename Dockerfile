@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 
 ARG TARGETARCH
 
@@ -8,7 +8,7 @@ RUN dotnet restore -a "$TARGETARCH" "SolarGateway_PrometheusProxy.csproj"
 COPY ./src .
 RUN dotnet publish -a "$TARGETARCH" "SolarGateway_PrometheusProxy.csproj" -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS base
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS base
 RUN apk add --no-cache curl
 WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080

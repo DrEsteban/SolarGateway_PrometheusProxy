@@ -54,7 +54,7 @@ public class MyHttpTraceActivityProcessor(IHttpContextAccessor _httpContextAcces
         const string Path = "url.path";
         var request = context.Request;
         var connection = context.Connection;
-        var path = (request.PathBase.HasValue || request.Path.HasValue) ? (request.PathBase + request.Path).ToString() : "/";
+        var path = (request!.PathBase.HasValue || request.Path.HasValue) ? (request.PathBase + request.Path).ToString() : "/";
         SetIpAddressTagIfDifferent(activity, ClientIP, connection.RemoteIpAddress?.ToString());
         SetStringTagIfDifferent(activity, Scheme, request.Scheme);
         SetStringTagIfDifferent(activity, Host, request.Host.Host);
