@@ -130,7 +130,8 @@ if (configuration.GetValue<bool>("TeslaGateway:Enabled"))
         {
             client.BaseAddress = new Uri($"https://{configuration["TeslaGateway:Host"]}");
             // The Tesla Gateway only accepts a certain set of Host header values
-            client.DefaultRequestHeaders.Host = "powerwall";
+            string? requestHostOverride = configuration["TeslaGateway:RequestHost"];
+            client.DefaultRequestHeaders.Host = string.IsNullOrWhiteSpace(requestHostOverride) ? "powerwall" : requestHostOverride;
         })
         .ConfigurePrimaryHttpMessageHandler(_ =>
         {

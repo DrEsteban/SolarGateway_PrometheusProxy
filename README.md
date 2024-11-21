@@ -11,6 +11,18 @@ I've also checked in a few example assets for Docker Compose, Prometheus, and Gr
 > [!WARNING]
 > This app is currently designed to be run in a totally-local Prometheus environent behind a firewall. As such, there is no authentication enforced for callers of the API.
 
+## Configuring
+
+If you look at the `docker-compose.example.yml` file, there are a few <variables> that need to be filled in.
+
+### Tesla Gateway
+* `TeslaGateway__Host` - The IP address of your Tesla Gateway
+* `TeslaGateway__Email` - The email of your Tesla account
+* `TeslaGateway__Password` - This is **NOT** the password for your Tesla account:
+  * You can check here for details on how to find the password, and possibly change it later: https://www.tesla.com/support/energy/powerwall/own/connecting-network
+  * For my Backup Gateway 2 system, the sticker was located under the main cover. It was the last 5 characters of the string labeled "PASSWORD".
+  
+
 ## Running
 ```sh
 $ docker build -t solarapiproxy .
