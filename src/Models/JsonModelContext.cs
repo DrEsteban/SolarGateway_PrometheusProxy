@@ -7,7 +7,6 @@ namespace SolarGateway_PrometheusProxy.Models;
 [JsonSerializable(typeof(JsonDocument))]
 [JsonSerializable(typeof(TeslaLoginRequest))]
 [JsonSerializable(typeof(TeslaLoginResponse))]
-[JsonSerializable(typeof(IDictionary<string, string[]>), TypeInfoPropertyName = "StringArrayDictionary")]
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 public sealed partial class JsonModelContext : JsonSerializerContext
 {
