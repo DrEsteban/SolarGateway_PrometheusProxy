@@ -15,8 +15,7 @@ namespace SolarGateway_PrometheusProxy.Services;
 /// </remarks>
 public class EnphaseMetricsService(
     HttpClient httpClient,
-    ILogger<EnphaseMetricsService> logger,
-    ILoggerFactory loggerFactory) : MetricsServiceBase(httpClient, logger, loggerFactory)
+    ILogger<EnphaseMetricsService> logger) : MetricsServiceBase(httpClient, logger)
 {
     protected override string MetricCategory => "enphase";
 

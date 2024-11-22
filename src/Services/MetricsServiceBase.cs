@@ -1,8 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using Polly;
-using Polly.Retry;
 using Prometheus;
 using SolarGateway_PrometheusProxy.Exceptions;
 using SolarGateway_PrometheusProxy.Models;
@@ -12,54 +10,21 @@ namespace SolarGateway_PrometheusProxy.Services;
 /// <summary>
 /// Base class that provides common functionality for brands that use a REST API to collect metrics.
 /// </summary>
-public abstract class MetricsServiceBase : IMetricsService
+public abstract class MetricsServiceBase(HttpClient client, ILogger logger) : IMetricsService
 {
     /// <summary>
     /// The HTTP client used to call the brand's API.
     /// </summary>
-    protected readonly HttpClient _client;
+    protected readonly HttpClient _client = client;
 
     /// <summary>
     /// The logger used to log messages.
     /// </summary>
-    protected readonly ILogger _logger;
-
-    /// <summary>
-    /// The resilience pipeline used to call the brand's API.
-    /// </summary>
-    protected readonly ResiliencePipeline<HttpResponseMessage> _resiliencePipeline;
+    protected readonly ILogger _logger = logger;
 
     private readonly SemaphoreSlim _authTokenRefreshLock = new(1, 1);
     private bool _authTokenRefreshed;
     private AuthenticationHeaderValue? _authenticationHeader;
-
-    public MetricsServiceBase(HttpClient client, ILogger logger, ILoggerFactory factory)
-    {
-        this._client = client;
-        this._logger = logger;
-        this._resiliencePipeline = new ResiliencePipelineBuilder<HttpResponseMessage>()
-            .ConfigureTelemetry(factory)
-            .AddRetry(
-                new RetryStrategyOptions<HttpResponseMessage>
-                {
-                    ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
-                        .HandleResult(result => this.UsesAuthToken && result.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden),
-                    MaxRetryAttempts = 1,
-                    Delay = TimeSpan.Zero,
-                    OnRetry = args => this.RefreshTokenAsync(args.Context.CancellationToken)
-                })
-            .AddRetry(
-                new RetryStrategyOptions<HttpResponseMessage>
-                {
-                    ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
-                        .HandleResult(result => result.StatusCode is HttpStatusCode.TooManyRequests),
-                    MaxRetryAttempts = 3,
-                    BackoffType = DelayBackoffType.Exponential,
-                    UseJitter = true
-                })
-            .AddTimeout(TimeSpan.FromSeconds(5))
-            .Build();
-    }
 
     /// <summary>
     /// Main method to collect metrics from the brand's device(s) and save them to the Prometheus <see cref="CollectorRegistry"/>.
@@ -129,6 +94,7 @@ public abstract class MetricsServiceBase : IMetricsService
     /// </remarks>
     protected async Task<JsonDocument?> CallMetricEndpointAsync(string path, CancellationToken cancellationToken)
     {
+        HttpResponseMessage? response = null;
         try
         {
             if (this.UsesAuthToken && this._authenticationHeader == null)
@@ -136,13 +102,23 @@ public abstract class MetricsServiceBase : IMetricsService
                 await this.RefreshTokenAsync(cancellationToken);
             }
 
-            using var response = await _resiliencePipeline.ExecuteAsync(async token =>
+            async Task<HttpResponseMessage> SendRequestAsync()
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, path);
                 request.Headers.Authorization = this._authenticationHeader;
 
-                return await this._client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
-            }, cancellationToken);
+                return await this._client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            }
+
+            response = await SendRequestAsync();
+
+            if (this.UsesAuthToken && response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            {
+                // Try refresh token and issue again
+                await this.RefreshTokenAsync(cancellationToken);
+                response.Dispose();
+                response = await SendRequestAsync();
+            }
 
             if (!response.IsSuccessStatusCode)
             {
@@ -157,12 +133,22 @@ public abstract class MetricsServiceBase : IMetricsService
         }
         catch (Exception ex)
         {
-            throw new MetricRequestFailedException(ex.Message, ex);
+            this._logger.LogError(ex, "Failed to call '{Path}'", path);
+            return null;
+        }
+        finally
+        {
+            response?.Dispose();
         }
     }
 
     private async ValueTask RefreshTokenAsync(CancellationToken cancellationToken)
     {
+        if (!this.UsesAuthToken || this._authTokenRefreshed)
+        {
+            return;
+        }
+
         await _authTokenRefreshLock.WaitAsync(cancellationToken);
         try
         {

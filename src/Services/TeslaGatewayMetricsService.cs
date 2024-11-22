@@ -16,8 +16,7 @@ public partial class TeslaGatewayMetricsService(
     HttpClient httpClient,
     IOptions<TeslaConfiguration> configuration,
     IOptions<TeslaLoginRequest> loginRequest,
-    ILogger<TeslaGatewayMetricsService> logger,
-    ILoggerFactory loggerFactory) : MetricsServiceBase(httpClient, logger, loggerFactory)
+    ILogger<TeslaGatewayMetricsService> logger) : MetricsServiceBase(httpClient, logger)
 {
     private readonly TeslaLoginRequest _loginRequest = loginRequest.Value;
     private readonly TimeSpan _loginCacheLength = TimeSpan.FromMinutes(configuration.Value.LoginCacheMinutes);
@@ -68,12 +67,12 @@ public partial class TeslaGatewayMetricsService(
             this.PullSiteInfo(collectorRegistry, cancellationToken),
             this.PullStatus(collectorRegistry, cancellationToken),
             this.PullOperation(collectorRegistry, cancellationToken));
+
+        base.SetRequestDurationMetric(collectorRegistry, sw.Elapsed);
         if (!results.All(r => r))
         {
             throw new MetricRequestFailedException($"Failed to pull {results.Count(r => !r)}/{results.Length} endpoints on Tesla gateway");
         }
-
-        base.SetRequestDurationMetric(collectorRegistry, sw.Elapsed);
     }
 
     private async Task<bool> PullMeterAggregates(CollectorRegistry registry, CancellationToken cancellationToken)
