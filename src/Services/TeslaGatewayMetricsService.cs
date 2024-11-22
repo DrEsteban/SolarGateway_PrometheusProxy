@@ -24,6 +24,8 @@ public partial class TeslaGatewayMetricsService(
 
     protected override string MetricCategory => "tesla_gateway";
 
+    protected override bool UsesAuthToken => true;
+
     protected override async Task<AuthenticationHeaderValue?> FetchAuthenticationHeaderAsync(CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/login/Basic");

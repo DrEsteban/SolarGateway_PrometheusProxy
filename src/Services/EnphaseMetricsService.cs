@@ -20,6 +20,8 @@ public class EnphaseMetricsService(
 {
     protected override string MetricCategory => "enphase";
 
+    protected override bool UsesAuthToken => false;
+
     protected override Task<AuthenticationHeaderValue?> FetchAuthenticationHeaderAsync(CancellationToken cancellationToken)
         => Task.FromResult<AuthenticationHeaderValue?>(null);
 

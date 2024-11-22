@@ -59,14 +59,16 @@ var otel = services.AddOpenTelemetry()
     .WithLogging()
     .WithTracing(o =>
     {
-        o.AddProcessor<MyHttpTraceActivityProcessor>()
+        o.AddSource("Polly")
+            .AddProcessor<MyHttpTraceActivityProcessor>()
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
             .SetErrorStatusOnException();
     })
     .WithMetrics(o =>
     {
-        o.AddAspNetCoreInstrumentation()
+        o.AddMeter("Polly")
+            .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
             .AddProcessInstrumentation()
             .AddRuntimeInstrumentation()
