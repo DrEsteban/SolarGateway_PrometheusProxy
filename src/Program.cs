@@ -143,8 +143,7 @@ if (configuration.GetValue<bool>("TeslaGateway:Enabled"))
             return handler;
         })
         .UseHttpClientMetrics()
-        .RemoveAllLoggers()
-        .AddLogger<OutboundHttpClientLogger>();
+        .RemoveAllLoggers();
 }
 
 // Enphase

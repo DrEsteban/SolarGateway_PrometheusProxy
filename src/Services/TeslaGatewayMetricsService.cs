@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Caching.Memory;
@@ -17,13 +18,40 @@ public partial class TeslaGatewayMetricsService(
     IOptions<TeslaConfiguration> configuration,
     IOptions<TeslaLoginRequest> loginRequest,
     ILogger<TeslaGatewayMetricsService> logger,
-    IMemoryCache cache) : MetricsServiceBase(httpClient, logger)
+    ILoggerFactory loggerFactory,
+    IMemoryCache cache) : MetricsServiceBase(httpClient, logger, loggerFactory)
 {
     private readonly TeslaLoginRequest _loginRequest = loginRequest.Value;
     private readonly IMemoryCache _cache = cache;
     private readonly TimeSpan _loginCacheLength = TimeSpan.FromMinutes(configuration.Value.LoginCacheMinutes);
 
     protected override string MetricCategory => "tesla_gateway";
+
+    protected override async Task<AuthenticationHeaderValue?> FetchAuthenticationHeaderAsync(CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/login/Basic");
+        request.Content = JsonContent.Create<TeslaLoginRequest>(this._loginRequest, JsonModelContext.Default.TeslaLoginRequest);
+        using var response = await this._client.SendAsync(request, cancellationToken);
+        var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            this._logger.LogError("Got {StatusCodeString} ({StatusCode}) calling login endpoint: {Body}",
+                (int)response.StatusCode,
+                response.StatusCode,
+                responseContent);
+            throw new MetricRequestFailedException($"Got {(int)response.StatusCode} ({response.StatusCode}) calling login endpoint: {responseContent}");
+        }
+
+        var loginResponse = JsonSerializer.Deserialize<TeslaLoginResponse>(responseContent, JsonModelContext.Default.TeslaLoginResponse);
+        if (string.IsNullOrEmpty(loginResponse?.Token))
+        {
+            const string err = $"Failed to parse {nameof(TeslaLoginResponse)} for valid token";
+            this._logger.LogError(err);
+            throw new Exception(err);
+        }
+        this._logger.LogDebug("Fetched new token: {Token}", JsonSerializer.Serialize<TeslaLoginResponse>(loginResponse, JsonModelContext.Default.TeslaLoginResponse));
+        return loginResponse.ToAuthenticationHeader();
+    }
 
     /// <summary>
     /// Collects metrics from the Tesla Gateway saves to the Prometheus <see cref="CollectorRegistry"/>.

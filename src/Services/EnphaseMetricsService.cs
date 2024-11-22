@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using Prometheus;
 using SolarGateway_PrometheusProxy.Exceptions;
@@ -14,9 +15,13 @@ namespace SolarGateway_PrometheusProxy.Services;
 /// </remarks>
 public class EnphaseMetricsService(
     HttpClient httpClient,
-    ILogger<EnphaseMetricsService> logger) : MetricsServiceBase(httpClient, logger)
+    ILogger<EnphaseMetricsService> logger,
+    ILoggerFactory loggerFactory) : MetricsServiceBase(httpClient, logger, loggerFactory)
 {
     protected override string MetricCategory => "enphase";
+
+    protected override Task<AuthenticationHeaderValue?> FetchAuthenticationHeaderAsync(CancellationToken cancellationToken) 
+        => Task.FromResult<AuthenticationHeaderValue?>(null);
 
     public override async Task CollectMetricsAsync(CollectorRegistry collectorRegistry, CancellationToken cancellationToken = default)
     {
