@@ -17,7 +17,6 @@ public partial class TeslaGatewayMetricsService(
     IOptions<TeslaConfiguration> configuration,
     ILogger<TeslaGatewayMetricsService> logger) : MetricsServiceBase(factory.CreateClient(nameof(TeslaGatewayMetricsService)), logger)
 {
-    private readonly TimeSpan _loginCacheLength = TimeSpan.FromMinutes(configuration.Value.LoginCacheMinutes);
     private readonly TeslaConfiguration _configuration = configuration.Value;
     private volatile TeslaLoginResponse? _cachedLoginResponse;
 

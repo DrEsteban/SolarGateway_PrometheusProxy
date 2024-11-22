@@ -38,11 +38,6 @@ public class TeslaConfiguration
     [RequiredIf(nameof(Enabled), true)]
     public string RequestHost { get; set; } = "powerwall";
 
-    /// <summary>
-    /// How long to cache the login before fetching a new one
-    /// </summary>
-    public int LoginCacheMinutes { get; set; } = 10;
-
     public TeslaLoginRequest GetTeslaLoginRequest()
         => new()
         {

@@ -179,6 +179,11 @@ app.UseResponseCaching();
 // This endpoint provides Prometheus metrics about the app itself.
 // It is not the same as the Controller-based /metrics endpoint that proxies metrics from other services.
 app.UseOpenTelemetryPrometheusScrapingEndpoint("/appmetrics");
+if (app.Configuration.GetValue<bool>("EnableConfigEndpoints", false))
+{
+    app.MapGet("/config/tesla", (IOptions<TeslaConfiguration> config) => Results.Ok(config.Value));
+    app.MapGet("/config/enphase", (IOptions<EnphaseConfiguration> config) => Results.Ok(config.Value));
+}
 app.MapControllers();
 
 // Run the app:
