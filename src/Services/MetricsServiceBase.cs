@@ -131,6 +131,10 @@ public abstract class MetricsServiceBase(HttpClient client, ILogger logger) : IM
 
             return await response.Content.ReadFromJsonAsync<JsonDocument>(JsonModelContext.Default.JsonDocument, cancellationToken);
         }
+        catch (MetricRequestFailedException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Failed to call '{Path}'", path);
