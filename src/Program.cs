@@ -122,16 +122,18 @@ services.AddTransient<OutboundHttpClientLogger>();
 
 // Collectors:
 // Tesla
-if (configuration.GetValue<bool>("TeslaGateway:Enabled"))
+if (configuration.GetValue<bool>("Tesla:Enabled"))
 {
-    services.Configure<TeslaLoginRequest>(configuration.GetSection("TeslaGateway"));
-    services.Configure<TeslaConfiguration>(configuration.GetSection("TeslaGateway"));
-    services.AddHttpClient<IMetricsService, TeslaGatewayMetricsService>(client =>
+    services.AddOptionsWithValidateOnStart<TeslaConfiguration>()
+        .BindConfiguration("Tesla")
+        .ValidateDataAnnotations();
+
+    services.AddHttpClient<TeslaGatewayMetricsService>((c, client) =>
         {
-            client.BaseAddress = new Uri($"https://{configuration["TeslaGateway:Host"]}");
+            var teslaConfig = c.GetRequiredService<IOptions<TeslaConfiguration>>().Value;
+            client.BaseAddress = new Uri($"https://{teslaConfig.Host}");
             // The Tesla Gateway only accepts a certain set of Host header values
-            string? requestHostOverride = configuration["TeslaGateway:RequestHost"];
-            client.DefaultRequestHeaders.Host = string.IsNullOrWhiteSpace(requestHostOverride) ? "powerwall" : requestHostOverride;
+            client.DefaultRequestHeaders.Host = teslaConfig.RequestHost;
         })
         .ConfigurePrimaryHttpMessageHandler(_ =>
         {
@@ -145,18 +147,24 @@ if (configuration.GetValue<bool>("TeslaGateway:Enabled"))
         .UseHttpClientMetrics()
         .RemoveAllLoggers()
         .AddLogger<OutboundHttpClientLogger>();
+    services.AddSingleton<IMetricsService, TeslaGatewayMetricsService>();
 }
 
 // Enphase
 if (configuration.GetValue<bool>("Enphase:Enabled"))
 {
-    services.AddHttpClient<IMetricsService, EnphaseMetricsService>(client =>
+    services.AddOptionsWithValidateOnStart<EnphaseConfiguration>()
+        .BindConfiguration("Enphase")
+        .ValidateDataAnnotations();
+    services.AddHttpClient<IMetricsService, EnphaseMetricsService>((c, client) =>
         {
-            client.BaseAddress = new Uri($"http://{configuration["Enphase:Host"]}");
+            var enphaseConfig = c.GetRequiredService<IOptions<EnphaseConfiguration>>().Value;
+            client.BaseAddress = new Uri($"http://{enphaseConfig.Host}");
         })
         .UseHttpClientMetrics()
         .RemoveAllLoggers()
         .AddLogger<OutboundHttpClientLogger>();
+    services.AddSingleton<IMetricsService, EnphaseMetricsService>();
 }
 
 // -----------------

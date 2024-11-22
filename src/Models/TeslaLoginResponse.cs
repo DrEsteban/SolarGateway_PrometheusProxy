@@ -5,9 +5,19 @@ namespace SolarGateway_PrometheusProxy.Models;
 
 public class TeslaLoginResponse
 {
+    private string? _token;
     [JsonPropertyName("token")]
-    public string? Token { get; set; }
+    [JsonRequired]
+    public string? Token 
+    {
+        get => this._token;
+        set
+        {
+            this._token = value;
+            this.AuthenticationHeader = value is null ? null : new("Bearer", value);
+        }
+    }
 
-    public AuthenticationHeaderValue ToAuthenticationHeader()
-        => new("Bearer", this.Token);
+    [JsonIgnore]
+    public AuthenticationHeaderValue? AuthenticationHeader { get; private set; }
 }

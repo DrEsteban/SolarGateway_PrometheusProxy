@@ -13,8 +13,8 @@ namespace SolarGateway_PrometheusProxy.Services;
 /// There may be more metrics available with additional investigation.
 /// </remarks>
 public class EnphaseMetricsService(
-    HttpClient httpClient,
-    ILogger<EnphaseMetricsService> logger) : MetricsServiceBase(httpClient, logger)
+    IHttpClientFactory factory,
+    ILogger<EnphaseMetricsService> logger) : MetricsServiceBase(factory.CreateClient(nameof(EnphaseMetricsService)), logger)
 {
     protected override string MetricCategory => "enphase";
 
@@ -22,7 +22,7 @@ public class EnphaseMetricsService(
     {
         var sw = Stopwatch.StartNew();
 
-        using var metricsDocument = (await base.CallMetricEndpointAsync("/production.json", () => null, cancellationToken))
+        using var metricsDocument = (await base.CallMetricEndpointAsync("/production.json", null, cancellationToken)).Document
             ?? throw new MetricRequestFailedException($"Failed to pull metric endpoint endpoints on Enphase gateway");
         var production = metricsDocument.RootElement
             .GetProperty("production")

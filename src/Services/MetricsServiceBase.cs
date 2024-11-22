@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Net;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using Prometheus;
 using SolarGateway_PrometheusProxy.Exceptions;
@@ -43,29 +44,42 @@ public abstract class MetricsServiceBase(HttpClient client, ILogger logger) : IM
         }
     }
 
-    protected async Task<JsonDocument?> CallMetricEndpointAsync(string path, Func<AuthenticationHeaderValue?> authenticationCallback, CancellationToken cancellationToken)
+    /// <summary>
+    /// Calls a metric endpoint and returns the JSON document and status code.
+    /// </summary>
+    /// <param name="httpMethod">Defaults to GET if unspecified</param>
+    /// <exception cref="MetricRequestFailedException"></exception>
+    protected async Task<(JsonDocument? Document, HttpStatusCode StatusCode)> CallMetricEndpointAsync(
+        string path,
+        AuthenticationHeaderValue? authenticationHeader,
+        CancellationToken cancellationToken,
+        HttpMethod? httpMethod = null)
     {
+        httpMethod ??= HttpMethod.Get;
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, path);
-            var authHeader = authenticationCallback();
-            if (authHeader != null)
+            using var request = new HttpRequestMessage(httpMethod, path);
+            if (authenticationHeader != null)
             {
-                request.Headers.Authorization = authHeader;
+                request.Headers.Authorization = authenticationHeader;
             }
 
             using var response = await this._client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
-                this._logger.LogError("Got {StatusCode} calling '{Path}': {Body}", 
-                    response.StatusCode, 
-                    path, 
-                    await response.Content.ReadAsStringAsync(CancellationToken.None));
-                return null;
+                if (this._logger.IsEnabled(LogLevel.Debug))
+                {
+                    this._logger.LogDebug("Got {StatusCode} calling '{Path}': {Body}",
+                        response.StatusCode,
+                        path,
+                        await response.Content.ReadAsStringAsync(CancellationToken.None));
+                }
+                return (null, response.StatusCode);
             }
 
-            return await response.Content.ReadFromJsonAsync<JsonDocument>(JsonModelContext.Default.JsonDocument, cancellationToken);
+            var doc = await response.Content.ReadFromJsonAsync<JsonDocument>(JsonModelContext.Default.JsonDocument, cancellationToken);
+            return (doc, response.StatusCode);
         }
         catch (Exception ex)
         {

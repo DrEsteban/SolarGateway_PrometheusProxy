@@ -7,11 +7,11 @@ services:
     ports:
       - 5026:8080
     environment:
-      - "TeslaGateway__Enabled=true"
-      - "TeslaGateway__Email=<email>"
-      - "TeslaGateway__Password=<password>"
-      - "TeslaGateway__Host=<ip of the gateway>"
-      - "TeslaGateway__LoginCacheMinutes=10"
+      - "Tesla__Enabled=true"
+      - "Tesla__Email=<email>"
+      - "Tesla__Password=<password>"
+      - "Tesla__Host=<ip of the gateway>"
+      - "Tesla__LoginCacheMinutes=10"
       - "ResponseCacheDurationSeconds=3"
       - "Logging__Console__TimestampFormat=[MM/dd/yy h:mm:ss tt] "
       - "APPLICATIONINSIGHTS_CONNECTION_STRING=<optional: if you want to log to Azure>"
