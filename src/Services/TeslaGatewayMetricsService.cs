@@ -40,6 +40,12 @@ public partial class TeslaGatewayMetricsService(
             this._cachedLoginResponse = await this.LoginAsync(cancellationToken);
         }
 
+        var pingStatusCode = await this.PingTestAsync(cancellationToken);
+        if ((int)pingStatusCode is not >= 200 and < 300)
+        {
+            throw new MetricRequestFailedException($"Failed to authenticate and ping the Tesla Gateway: {(int)pingStatusCode} ({pingStatusCode})");
+        }
+
         // Get rest of metrics in parallel
         var results = await Task.WhenAll(
             this.PullMeterAggregatesAsync(collectorRegistry, cancellationToken),
@@ -76,7 +82,7 @@ public partial class TeslaGatewayMetricsService(
 
     private async Task<HttpStatusCode> PingTestAsync(CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/customer");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/customer");
         request.Headers.Authorization = this._cachedLoginResponse?.AuthenticationHeader;
         using var response = await this._client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         return response.StatusCode;
