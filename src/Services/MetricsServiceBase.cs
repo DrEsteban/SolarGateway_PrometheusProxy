@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Polly;
 using Polly.Retry;
+using Polly.Timeout;
 using Prometheus;
 using SolarGateway_PrometheusProxy.Exceptions;
 using SolarGateway_PrometheusProxy.Models;
@@ -17,6 +18,8 @@ public abstract class MetricsServiceBase : IMetricsService
     protected readonly HttpClient _client;
     protected readonly ILogger _logger;
     protected readonly ResiliencePipeline<HttpResponseMessage> _resiliencePipeline;
+
+    private bool _authTokenRefreshed;
 
     public MetricsServiceBase(HttpClient client, ILogger logger, ILoggerFactory factory)
     {
@@ -33,9 +36,21 @@ public abstract class MetricsServiceBase : IMetricsService
                     Delay = TimeSpan.Zero,
                     OnRetry = async args =>
                     {
+                        // Refresh the authentication token
                         this.AuthenticationHeader = await this.FetchAuthenticationHeaderAsync(args.Context.CancellationToken);
+                        this._authTokenRefreshed = true;
                     }
                 })
+            .AddRetry(
+                new RetryStrategyOptions<HttpResponseMessage>
+                {
+                    ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+                        .HandleResult(result => result.StatusCode is HttpStatusCode.TooManyRequests),
+                    MaxRetryAttempts = 3,
+                    BackoffType = DelayBackoffType.Exponential,
+                    UseJitter = true
+                })
+            .AddTimeout(TimeSpan.FromSeconds(5))
             .Build();
     }
 
@@ -51,32 +66,39 @@ public abstract class MetricsServiceBase : IMetricsService
     {
         var labelKeys = labels.Select(l => l.Key).Concat([$"{this.GetType().Name}Host"]).ToArray();
         var labelValues = labels.Select(l => l.Value).Concat([this._client.BaseAddress!.Host]).ToArray();
-        return Metrics.WithCustomRegistry(registry).CreateGauge($"solarapiproxy_{MetricCategory}_{subCategory}_{metric}", metric, labelKeys)
+        return Metrics.WithCustomRegistry(registry)
+                      .CreateGauge($"solarapiproxy_{MetricCategory}_{subCategory}_{metric}", metric, labelKeys)
                       .WithLabels(labelValues);
     }
 
-    protected void SetRequestDurationMetric(CollectorRegistry registry, bool loginCached, TimeSpan duration)
+    protected void SetRequestDurationMetric(CollectorRegistry registry, TimeSpan duration)
     {
         // Request duration metric
-        var requestDurationGauge_cache = this.CreateGauge(registry, "request", "duration_ms", KeyValuePair.Create("loginCached", "true"));
-        var requestDurationGauge_nocache = this.CreateGauge(registry, "request", "duration_ms", KeyValuePair.Create("loginCached", "false"));
-        if (loginCached)
+        var requestDurationGauge_loginCached = this.CreateGauge(registry, "request", "duration_ms", KeyValuePair.Create("loginCached", "true"));
+        var requestDurationGauge_loginNotCached = this.CreateGauge(registry, "request", "duration_ms", KeyValuePair.Create("loginCached", "false"));
+        if (this._authTokenRefreshed)
         {
-            requestDurationGauge_cache.Set(duration.TotalMilliseconds);
-            requestDurationGauge_nocache.Unpublish();
+            requestDurationGauge_loginNotCached.Set(duration.TotalMilliseconds);
+            requestDurationGauge_loginCached.Unpublish();
         }
         else
         {
-            requestDurationGauge_nocache.Set(duration.TotalMilliseconds);
-            requestDurationGauge_cache.Unpublish();
+            requestDurationGauge_loginCached.Set(duration.TotalMilliseconds);
+            requestDurationGauge_loginNotCached.Unpublish();
         }
+
+        this._authTokenRefreshed = false;
     }
 
     protected async Task<JsonDocument?> CallMetricEndpointAsync(string path, CancellationToken cancellationToken)
     {
         try
         {
-            this.AuthenticationHeader ??= await this.FetchAuthenticationHeaderAsync(cancellationToken);
+            if (this.AuthenticationHeader == null)
+            {
+                this.AuthenticationHeader = await this.FetchAuthenticationHeaderAsync(cancellationToken);
+                this._authTokenRefreshed = true;
+            }
 
             using var response = await _resiliencePipeline.ExecuteAsync(async token =>
             {

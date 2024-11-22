@@ -55,7 +55,7 @@ public class EnphaseMetricsService(
         this.SetMetric(collectorRegistry, nameof(storage), "wNow", storage);
         this.SetMetric(collectorRegistry, nameof(storage), "whNow", storage);
 
-        base.SetRequestDurationMetric(collectorRegistry, false, sw.Elapsed);
+        base.SetRequestDurationMetric(collectorRegistry, sw.Elapsed);
     }
 
     private void SetMetric(CollectorRegistry collectorRegistry, string type, string metric, JsonElement element)

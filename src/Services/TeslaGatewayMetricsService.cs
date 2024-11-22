@@ -58,7 +58,6 @@ public partial class TeslaGatewayMetricsService(
     public override async Task CollectMetricsAsync(CollectorRegistry collectorRegistry, CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
-        bool loginCached = true;
 
         // Get metrics in parallel
         var results = await Task.WhenAll(
@@ -72,7 +71,7 @@ public partial class TeslaGatewayMetricsService(
             throw new MetricRequestFailedException($"Failed to pull {results.Count(r => !r)}/{results.Length} endpoints on Tesla gateway");
         }
 
-        base.SetRequestDurationMetric(collectorRegistry, loginCached, sw.Elapsed);
+        base.SetRequestDurationMetric(collectorRegistry, sw.Elapsed);
     }
 
     private async Task<bool> PullMeterAggregates(CollectorRegistry registry, CancellationToken cancellationToken)
