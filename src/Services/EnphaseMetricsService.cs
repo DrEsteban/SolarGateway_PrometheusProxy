@@ -20,14 +20,14 @@ public class EnphaseMetricsService(
 {
     protected override string MetricCategory => "enphase";
 
-    protected override Task<AuthenticationHeaderValue?> FetchAuthenticationHeaderAsync(CancellationToken cancellationToken) 
+    protected override Task<AuthenticationHeaderValue?> FetchAuthenticationHeaderAsync(CancellationToken cancellationToken)
         => Task.FromResult<AuthenticationHeaderValue?>(null);
 
     public override async Task CollectMetricsAsync(CollectorRegistry collectorRegistry, CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
 
-        using var metricsDocument = (await base.CallMetricEndpointAsync("/production.json", () => null, cancellationToken))
+        using var metricsDocument = (await base.CallMetricEndpointAsync("/production.json", cancellationToken))
             ?? throw new MetricRequestFailedException($"Failed to pull metric endpoint endpoints on Enphase gateway");
         var production = metricsDocument.RootElement
             .GetProperty("production")

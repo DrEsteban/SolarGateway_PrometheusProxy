@@ -72,34 +72,30 @@ public abstract class MetricsServiceBase : IMetricsService
         }
     }
 
-    protected async Task<JsonDocument?> CallMetricEndpointAsync(string path, Func<AuthenticationHeaderValue?> authenticationCallback, CancellationToken cancellationToken)
+    protected async Task<JsonDocument?> CallMetricEndpointAsync(string path, CancellationToken cancellationToken)
     {
         try
         {
             this.AuthenticationHeader ??= await this.FetchAuthenticationHeaderAsync(cancellationToken);
 
-            return await _resiliencePipeline.ExecuteAsync<JsonDocument?>(async (CancellationToken token) =>
+            using var response = await _resiliencePipeline.ExecuteAsync(async token =>
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, path);
-                var authHeader = authenticationCallback();
-                if (authHeader != null)
-                {
-                    request.Headers.Authorization = authHeader;
-                }
+                request.Headers.Authorization = this.AuthenticationHeader;
 
-                using var response = await this._client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    this._logger.LogError("Got {StatusCode} calling '{Path}': {Body}",
-                        response.StatusCode,
-                        path,
-                        await response.Content.ReadAsStringAsync(CancellationToken.None));
-                    return null;
-                }
-
-                return await response.Content.ReadFromJsonAsync<JsonDocument>(JsonModelContext.Default.JsonDocument, token);
+                return await this._client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
             }, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                this._logger.LogError("Got {StatusCode} calling '{Path}': {Body}",
+                    response.StatusCode,
+                    path,
+                    await response.Content.ReadAsStringAsync(CancellationToken.None));
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<JsonDocument>(JsonModelContext.Default.JsonDocument, cancellationToken);
         }
         catch (Exception ex)
         {
