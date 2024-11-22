@@ -36,29 +36,31 @@ public partial class TeslaGatewayMetricsService(
         bool loginCached = true;
 
         // Get a cached auth token
-        var loginResponse = await _cache.GetOrCreateAsync("gateway_token", async e =>
+        var loginResponse = await this._cache.GetOrCreateAsync("gateway_token", async e =>
         {
             loginCached = false;
             using var request = new HttpRequestMessage(HttpMethod.Post, "/api/login/Basic");
-            request.Content = JsonContent.Create<TeslaLoginRequest>(_loginRequest, JsonModelContext.Default.TeslaLoginRequest);
-            using var response = await _client.SendAsync(request, cancellationToken);
+            request.Content = JsonContent.Create<TeslaLoginRequest>(this._loginRequest, JsonModelContext.Default.TeslaLoginRequest);
+            using var response = await this._client.SendAsync(request, cancellationToken);
             var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                string err = $"Got {(int)response.StatusCode} ({response.StatusCode}) calling login endpoint: {responseContent}";
-                _logger.LogError(err);
-                throw new MetricRequestFailedException(err);
+                this._logger.LogError("Got {StatusCodeString} ({StatusCode}) calling login endpoint: {Body}",
+                    (int)response.StatusCode,
+                    response.StatusCode,
+                    responseContent);
+                throw new MetricRequestFailedException($"Got {(int)response.StatusCode} ({response.StatusCode}) calling login endpoint: {responseContent}");
             }
 
             var value = JsonSerializer.Deserialize<TeslaLoginResponse>(responseContent, JsonModelContext.Default.TeslaLoginResponse);
-            e.AbsoluteExpirationRelativeToNow = value == null ? TimeSpan.Zero : _loginCacheLength;
+            e.AbsoluteExpirationRelativeToNow = value == null ? TimeSpan.Zero : this._loginCacheLength;
             return value;
         });
 
         if (string.IsNullOrEmpty(loginResponse?.Token))
         {
-            string err = $"Failed to parse {nameof(TeslaLoginResponse)} for valid token";
-            _logger.LogError(err);
+            const string err = $"Failed to parse {nameof(TeslaLoginResponse)} for valid token";
+            this._logger.LogError(err);
             throw new Exception(err);
         }
 
@@ -104,7 +106,7 @@ public partial class TeslaGatewayMetricsService(
 
                         break;
                     default:
-                        _logger.LogWarning($"Unsupported ValueKind: {metric.Value.ValueKind}");
+                        this._logger.LogWarning("Unsupported ValueKind: {ValueKind}", metric.Value.ValueKind);
                         break;
                 }
             }
