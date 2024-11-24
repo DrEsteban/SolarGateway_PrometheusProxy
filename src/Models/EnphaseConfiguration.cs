@@ -8,4 +8,9 @@ public class EnphaseConfiguration
 
     [RequiredIf(nameof(Enabled), true)]
     public string Host { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Timeout for requests to the gateway.
+    /// </summary>
+    public int RequestTimeoutSeconds { get; set; } = 10;
 }

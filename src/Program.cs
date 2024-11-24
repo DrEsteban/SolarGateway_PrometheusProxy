@@ -134,6 +134,7 @@ if (configuration.GetValue<bool>("Tesla:Enabled"))
             client.BaseAddress = new Uri($"https://{teslaConfig.Host}");
             // The Tesla Gateway only accepts a certain set of Host header values
             client.DefaultRequestHeaders.Host = teslaConfig.RequestHost;
+            client.Timeout = TimeSpan.FromSeconds(teslaConfig.RequestTimeoutSeconds);
         })
         .ConfigurePrimaryHttpMessageHandler(_ =>
         {
@@ -160,6 +161,7 @@ if (configuration.GetValue<bool>("Enphase:Enabled"))
         {
             var enphaseConfig = c.GetRequiredService<IOptions<EnphaseConfiguration>>().Value;
             client.BaseAddress = new Uri($"http://{enphaseConfig.Host}");
+            client.Timeout = TimeSpan.FromSeconds(enphaseConfig.RequestTimeoutSeconds);
         })
         .UseHttpClientMetrics()
         .RemoveAllLoggers()

@@ -38,6 +38,11 @@ public class TeslaConfiguration
     [RequiredIf(nameof(Enabled), true)]
     public string RequestHost { get; set; } = "powerwall";
 
+    /// <summary>
+    /// Timeout for requests to the Tesla Gateway.
+    /// </summary>
+    public int RequestTimeoutSeconds { get; set; } = 10;
+
     public TeslaLoginRequest GetTeslaLoginRequest()
         => new()
         {
