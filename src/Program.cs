@@ -11,7 +11,6 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Prometheus;
-using SolarGateway_PrometheusProxy;
 using SolarGateway_PrometheusProxy.Models;
 using SolarGateway_PrometheusProxy.Services;
 using SolarGateway_PrometheusProxy.Support;
