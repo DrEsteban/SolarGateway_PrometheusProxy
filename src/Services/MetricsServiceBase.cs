@@ -17,6 +17,7 @@ public abstract class MetricsServiceBase(HttpClient client, ILogger logger) : IM
 
     protected abstract string MetricCategory { get; }
 
+    /// <inheritdoc/>
     public abstract Task CollectMetricsAsync(CollectorRegistry collectorRegistry, CancellationToken cancellationToken = default);
 
     protected Gauge.Child CreateGauge(CollectorRegistry registry, string subCategory, string metric, params KeyValuePair<string, string>[] labels)

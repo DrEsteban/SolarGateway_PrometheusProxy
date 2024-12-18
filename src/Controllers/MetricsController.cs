@@ -33,14 +33,14 @@ public class MetricsController(
         // Set max timeout for metrics request
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(HttpContext.RequestAborted);
         cts.CancelAfter(TimeSpan.FromSeconds(5));
-        using var _ = cts.Token.Register(() => _logger.LogWarning("Canceling metrics request due to 5 sec timeout"));
+        using var _ = cts.Token.Register(() => this._logger.LogWarning("Canceling metrics request due to 5 sec timeout"));
 
-        // Ensure metrics are only collected once per cache duration
+        // Ensure metrics are only collected once per cache duration, by only one thread
         await this._cache.GetOrCreateAsync("LastMetricsRequest",
             async e =>
             {
-                await Task.WhenAll(_metricsServices.Select(m => m.CollectMetricsAsync(_collectorRegistry, cts.Token)));
-                e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(_responseCacheConfiguration.ResponseCacheDurationSeconds);
+                await Task.WhenAll(_metricsServices.Select(m => m.CollectMetricsAsync(this._collectorRegistry, cts.Token)));
+                e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(this._responseCacheConfiguration.ResponseCacheDurationSeconds);
                 return DateTimeOffset.UtcNow;
             });
 
@@ -50,7 +50,7 @@ public class MetricsController(
 
             // Serialize metrics
             Response.ContentType = PrometheusConstants.ExporterOpenMetricsContentTypeValue.ToString();
-            await _collectorRegistry.CollectAndExportAsTextAsync(Response.Body, ExpositionFormat.OpenMetricsText, cts.Token);
+            await this._collectorRegistry.CollectAndExportAsTextAsync(Response.Body, ExpositionFormat.OpenMetricsText, cts.Token);
         }
     }
 }

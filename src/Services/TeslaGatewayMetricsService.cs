@@ -24,29 +24,22 @@ public partial class TeslaGatewayMetricsService(
     protected override string MetricCategory => "tesla_gateway";
 
     /// <summary>
-    /// Collects metrics from the Tesla Gateway saves to the Prometheus <see cref="CollectorRegistry"/>.
+    /// Implementation for Tesla Gateway.
+    /// <inheritdoc/>
     /// </summary>
-    /// <exception cref="MetricRequestFailedException">Thrown when the Tesla Gateway returns an unexpected response.</exception>
-    /// <exception cref="Exception"></exception>
+    /// <inheritdoc/>
     public override async Task CollectMetricsAsync(CollectorRegistry collectorRegistry, CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
         bool loginCached = true;
 
-        // Check auth token cache
+        // Ensure we have a valid auth token
         if (string.IsNullOrWhiteSpace(this._cachedLoginResponse?.Token) ||
             (await this.PingTestAsync(cancellationToken)).IsAuthenticationFailure())
         {
-            // Cache an auth token
+            // Get and cache a new auth token
             loginCached = false;
             this._cachedLoginResponse = await this.LoginAsync(cancellationToken);
-        }
-
-        // Confirm auth token
-        var pingStatusCode = await this.PingTestAsync(cancellationToken);
-        if (!pingStatusCode.IsSuccessStatusCode())
-        {
-            throw new MetricRequestFailedException($"Failed to authenticate and ping the Tesla Gateway: {(int)pingStatusCode} ({pingStatusCode})");
         }
 
         // Get metrics in parallel
@@ -69,6 +62,26 @@ public partial class TeslaGatewayMetricsService(
         base.SetRequestDurationMetric(collectorRegistry, loginCached, sw.Elapsed);
     }
 
+    /// <summary>
+    /// Ensure's the auth token is valid by pinging an authorized endpoint on the gateway.
+    /// </summary>
+    /// <param name="loginResponse">Optional. If not provided, the <see cref="_cachedLoginResponse"/> will be used.</param>
+    private async Task<HttpStatusCode> PingTestAsync(CancellationToken cancellationToken, TeslaLoginResponse? loginResponse = null)
+    {
+        // Arbitrarily picking /api/operation as a test endpoint
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/operation");
+        // Use the provided auth info if available, otherwise use the cached login response
+        request.Headers.Authorization = (loginResponse ?? this._cachedLoginResponse)?.AuthenticationHeader;
+        using var response = await this._client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        return response.StatusCode;
+    }
+
+    /// <summary>
+    /// Fetches an auth token and ensures it's valid.
+    /// </summary>
+    /// <exception cref="MetricRequestFailedException">Thrown if we can't get a valid auth token</exception>
+    /// <exception cref="Exception">Thrown if we can't deserialize the auth token</exception>
+    /// <exception cref="JsonException">Thrown if we can't parse the auth token</exception>
     private async Task<TeslaLoginResponse> LoginAsync(CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/login/Basic");
@@ -84,17 +97,15 @@ public partial class TeslaGatewayMetricsService(
             throw new MetricRequestFailedException($"Got {(int)response.StatusCode} ({response.StatusCode}) calling login endpoint: {responseContent}");
         }
 
-        var value = JsonSerializer.Deserialize<TeslaLoginResponse>(responseContent, JsonModelContext.Default.TeslaLoginResponse);
-        return value ?? throw new Exception($"Failed to parse {nameof(TeslaLoginResponse)} for valid token");
-    }
+        var loginResponse = JsonSerializer.Deserialize<TeslaLoginResponse>(responseContent, JsonModelContext.Default.TeslaLoginResponse)
+            ?? throw new Exception($"Failed to parse {nameof(TeslaLoginResponse)} for valid token");
 
-    private async Task<HttpStatusCode> PingTestAsync(CancellationToken cancellationToken)
-    {
-        // Arbitrarily picking /api/operation as a test endpoint
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/operation");
-        request.Headers.Authorization = this._cachedLoginResponse?.AuthenticationHeader;
-        using var response = await this._client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        return response.StatusCode;
+        // Ensure token is valid
+        if (!(await this.PingTestAsync(cancellationToken, loginResponse)).IsSuccessStatusCode())
+        {
+            throw new MetricRequestFailedException($"Failed to authenticate and ping the Tesla Gateway after login");
+        }
+        return loginResponse;
     }
 
     private async Task<HttpStatusCode> PullMeterAggregatesAsync(CollectorRegistry registry, CancellationToken cancellationToken)
