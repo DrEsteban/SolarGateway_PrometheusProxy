@@ -8,7 +8,7 @@ public class TeslaLoginResponse
     private string? _token;
     [JsonPropertyName("token")]
     [JsonRequired]
-    public string? Token 
+    public string? Token
     {
         get => this._token;
         set

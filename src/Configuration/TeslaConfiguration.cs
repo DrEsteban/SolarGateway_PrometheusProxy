@@ -1,6 +1,7 @@
-﻿using SolarGateway_PrometheusProxy.Support;
+﻿using SolarGateway_PrometheusProxy.Models;
+using SolarGateway_PrometheusProxy.Support;
 
-namespace SolarGateway_PrometheusProxy.Models;
+namespace SolarGateway_PrometheusProxy.Configuration;
 
 public class TeslaConfiguration
 {
@@ -42,6 +43,16 @@ public class TeslaConfiguration
     /// Timeout for requests to the Tesla Gateway.
     /// </summary>
     public int RequestTimeoutSeconds { get; set; } = 10;
+
+    /// <summary>
+    /// How long to cache a successful login check before pinging again.
+    /// </summary>
+    public int LoginCheckCacheSeconds { get; set; } = 5;
+
+    /// <summary>
+    /// How long to wait before retrying after a 429 Too Many Requests response.
+    /// </summary>
+    public int RateLimitBackoffSeconds { get; set; } = 15;
 
     public TeslaLoginRequest GetTeslaLoginRequest()
         => new()

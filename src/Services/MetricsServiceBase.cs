@@ -20,6 +20,10 @@ public abstract class MetricsServiceBase(HttpClient client, ILogger logger) : IM
     /// <inheritdoc/>
     public abstract Task CollectMetricsAsync(CollectorRegistry collectorRegistry, CancellationToken cancellationToken = default);
 
+    /// <inheritdoc/>
+    public virtual Task EnsureLoggedInAsync(CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
     protected Gauge.Child CreateGauge(CollectorRegistry registry, string subCategory, string metric, params KeyValuePair<string, string>[] labels)
     {
         var labelKeys = labels.Select(l => l.Key).Concat([$"{this.GetType().Name}Host"]).ToArray();

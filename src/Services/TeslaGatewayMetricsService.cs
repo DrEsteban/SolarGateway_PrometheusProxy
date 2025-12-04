@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Options;
 using Prometheus;
+using SolarGateway_PrometheusProxy.Configuration;
 using SolarGateway_PrometheusProxy.Exceptions;
 using SolarGateway_PrometheusProxy.Models;
 using SolarGateway_PrometheusProxy.Support;
@@ -20,6 +21,9 @@ public partial class TeslaGatewayMetricsService(
 {
     private readonly TeslaConfiguration _configuration = configuration.Value;
     private volatile TeslaLoginResponse? _cachedLoginResponse;
+    private readonly SemaphoreSlim _loginSemaphore = new(1, 1);
+    private long _lastSuccessfulLoginCheckTicks = DateTimeOffset.MinValue.Ticks;
+    private long _backoffUntilTicks = DateTimeOffset.MinValue.Ticks;
 
     protected override string MetricCategory => "tesla_gateway";
 
@@ -31,16 +35,7 @@ public partial class TeslaGatewayMetricsService(
     public override async Task CollectMetricsAsync(CollectorRegistry collectorRegistry, CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
-        bool loginCached = true;
-
-        // Ensure we have a valid auth token
-        if (string.IsNullOrWhiteSpace(this._cachedLoginResponse?.Token) ||
-            (await this.PingTestAsync(cancellationToken)).IsAuthenticationFailure())
-        {
-            // Get and cache a new auth token
-            loginCached = false;
-            this._cachedLoginResponse = await this.LoginAsync(cancellationToken);
-        }
+        bool loginCached = await this.EnsureAuthenticatedAsync(cancellationToken);
 
         // Get metrics in parallel
         var results = await Task.WhenAll(
@@ -60,6 +55,62 @@ public partial class TeslaGatewayMetricsService(
         }
 
         base.SetRequestDurationMetric(collectorRegistry, loginCached, sw.Elapsed);
+    }
+
+    public override Task EnsureLoggedInAsync(CancellationToken cancellationToken = default)
+        => this.EnsureAuthenticatedAsync(cancellationToken);
+
+    private async Task<bool> EnsureAuthenticatedAsync(CancellationToken cancellationToken)
+    {
+        long backoffTicks = Interlocked.Read(ref this._backoffUntilTicks);
+        if (DateTimeOffset.UtcNow.Ticks < backoffTicks)
+        {
+            throw new MetricRequestFailedException("Tesla Gateway is rate limiting requests. Backing off.", 429);
+        }
+
+        if (!await this.RequiresLoginAsync(cancellationToken))
+        {
+            return true;
+        }
+
+        await this._loginSemaphore.WaitAsync(cancellationToken);
+        try
+        {
+            if (!await this.RequiresLoginAsync(cancellationToken))
+            {
+                return true;
+            }
+
+            this._cachedLoginResponse = await this.LoginAsync(cancellationToken);
+            return false;
+        }
+        finally
+        {
+            this._loginSemaphore.Release();
+        }
+    }
+
+    private async Task<bool> RequiresLoginAsync(CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(this._cachedLoginResponse?.Token))
+        {
+            return true;
+        }
+
+        long lastTicks = Interlocked.Read(ref this._lastSuccessfulLoginCheckTicks);
+        if (DateTimeOffset.UtcNow.Ticks - lastTicks < TimeSpan.FromSeconds(this._configuration.LoginCheckCacheSeconds).Ticks)
+        {
+            return false;
+        }
+
+        var pingResult = await this.PingTestAsync(cancellationToken);
+        bool isAuthFailure = pingResult.IsAuthenticationFailure();
+        Interlocked.Exchange(ref this._lastSuccessfulLoginCheckTicks,
+            isAuthFailure
+                ? DateTimeOffset.MinValue.Ticks
+                : DateTimeOffset.UtcNow.Ticks);
+
+        return isAuthFailure;
     }
 
     /// <summary>
@@ -90,6 +141,12 @@ public partial class TeslaGatewayMetricsService(
         var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                Interlocked.Exchange(ref this._backoffUntilTicks, DateTimeOffset.UtcNow.AddSeconds(this._configuration.RateLimitBackoffSeconds).Ticks);
+                throw new MetricRequestFailedException("Tesla Gateway returned 429 Too Many Requests", 429);
+            }
+
             this._logger.LogDebug("Got {StatusCodeString} ({StatusCode}) calling login endpoint: {Body}",
                 (int)response.StatusCode,
                 response.StatusCode,
@@ -105,6 +162,8 @@ public partial class TeslaGatewayMetricsService(
         {
             throw new MetricRequestFailedException($"Failed to authenticate and ping the Tesla Gateway after login");
         }
+
+        Interlocked.Exchange(ref this._lastSuccessfulLoginCheckTicks, DateTimeOffset.UtcNow.Ticks);
         return loginResponse;
     }
 

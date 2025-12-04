@@ -17,4 +17,9 @@ public interface IMetricsService
     /// <exception cref="MetricRequestFailedException">Thrown when the solar gateway returns an unexpected response.</exception>
     /// <exception cref="Exception"></exception>
     Task CollectMetricsAsync(CollectorRegistry collectorRegistry, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ensures the integration has a valid authentication context for future metric pulls.
+    /// </summary>
+    Task EnsureLoggedInAsync(CancellationToken cancellationToken = default);
 }

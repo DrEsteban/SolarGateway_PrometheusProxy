@@ -1,6 +1,6 @@
 using System.Reflection;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
@@ -11,7 +11,9 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Prometheus;
-using SolarGateway_PrometheusProxy.Models;
+using SolarGateway_PrometheusProxy;
+using SolarGateway_PrometheusProxy.Configuration;
+using SolarGateway_PrometheusProxy.HealthChecks;
 using SolarGateway_PrometheusProxy.Services;
 using SolarGateway_PrometheusProxy.Support;
 
@@ -27,7 +29,6 @@ configuration.AddJsonFile("custom.json", optional: true);
 
 // Config objects needed during initialization
 var responseCacheConfiguration = configuration.Get<ResponseCacheConfiguration>() ?? new();
-
 // Begin adding services to the container:
 // Telemetry
 services.AddMetrics();
@@ -55,7 +56,6 @@ var otel = services.AddOpenTelemetry()
             .AddProcessRuntimeDetector()
             .AddTelemetrySdk();
     })
-    .WithLogging()
     .WithTracing(o =>
     {
         o.AddProcessor<MyHttpTraceActivityProcessor>()
@@ -100,23 +100,10 @@ services.AddSingleton<CollectorRegistry>(Metrics.NewCustomRegistry());
 
 // Http
 services.AddSingleton<IOptions<ResponseCacheConfiguration>>(Options.Create(responseCacheConfiguration));
-services.AddControllers(c =>
-{
-    var profile = new CacheProfile()
-    {
-        Duration = responseCacheConfiguration.ResponseCacheDurationSeconds
-    };
-
-    if (profile.Duration <= 0)
-    {
-        profile.Duration = null;
-        profile.NoStore = true;
-    }
-
-    c.CacheProfiles.Add("default", profile);
-});
 services.AddMemoryCache();
 services.AddHttpContextAccessor();
+services.AddHealthChecks()
+    .AddCheck<MetricsHealthCheck>("Metrics");
 services.AddTransient<OutboundHttpClientLogger>();
 
 // Collectors:
@@ -168,6 +155,8 @@ if (configuration.GetValue<bool>("Enphase:Enabled"))
     services.AddSingleton<IMetricsService, EnphaseMetricsService>();
 }
 
+services.AddSingleton<IMetricsCollectionService, MetricsCollectionService>();
+
 // -----------------
 // Build app:
 await using var app = builder.Build();
@@ -176,16 +165,31 @@ await using var app = builder.Build();
 //
 // Since we have no auth, go ahead and always use developer exception page.
 app.UseDeveloperExceptionPage();
-app.UseResponseCaching();
 // This endpoint provides Prometheus metrics about the app itself.
-// It is not the same as the Controller-based /metrics endpoint that proxies metrics from other services.
+// It is not the same as the /metrics endpoint that proxies metrics from other services.
 app.UseOpenTelemetryPrometheusScrapingEndpoint("/appmetrics");
 if (app.Configuration.GetValue<bool>("EnableConfigEndpoints", false))
 {
     app.MapGet("/config/tesla", (IOptions<TeslaConfiguration> config) => Results.Ok(config.Value));
     app.MapGet("/config/enphase", (IOptions<EnphaseConfiguration> config) => Results.Ok(config.Value));
 }
-app.MapControllers();
+app.MapMetricsEndpoints();
+app.MapHealthChecks("/health");
+
+// Initialize logins
+try
+{
+    var metricsServices = app.Services.GetServices<IMetricsService>();
+    foreach (var service in metricsServices)
+    {
+        await service.EnsureLoggedInAsync();
+    }
+}
+catch (Exception ex)
+{
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogWarning(ex, "Failed to initialize metrics services login.");
+}
 
 // Run the app:
 await app.RunAsync();

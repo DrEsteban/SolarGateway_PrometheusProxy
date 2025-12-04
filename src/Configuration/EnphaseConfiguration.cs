@@ -1,6 +1,6 @@
 ﻿using SolarGateway_PrometheusProxy.Support;
 
-namespace SolarGateway_PrometheusProxy.Models;
+namespace SolarGateway_PrometheusProxy.Configuration;
 
 public class EnphaseConfiguration
 {
