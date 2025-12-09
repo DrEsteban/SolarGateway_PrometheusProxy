@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
@@ -106,6 +108,14 @@ services.AddHttpContextAccessor();
 services.AddHealthChecks()
     .AddCheck<MetricsHealthCheck>("Metrics");
 services.AddTransient<OutboundHttpClientLogger>();
+services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.WriteIndented = true;
+    o.SerializerOptions.ReadCommentHandling = JsonCommentHandling.Skip;
+    o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenReading;
+    o.SerializerOptions.PropertyNamingPolicy = null; // Use original naming
+    o.SerializerOptions.PropertyNameCaseInsensitive = true;
+});
 
 // Collectors:
 // Tesla
