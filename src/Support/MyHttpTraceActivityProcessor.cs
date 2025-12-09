@@ -53,13 +53,16 @@ public class MyHttpTraceActivityProcessor(IHttpContextAccessor _httpContextAcces
         const string Port = "server.port";
         const string Path = "url.path";
         var request = context.Request;
-        var connection = context.Connection;
-        var path = (request!.PathBase.HasValue || request.Path.HasValue) ? (request.PathBase + request.Path).ToString() : "/";
-        SetIpAddressTagIfDifferent(activity, ClientIP, connection.RemoteIpAddress?.ToString());
-        SetStringTagIfDifferent(activity, Scheme, request.Scheme);
-        SetStringTagIfDifferent(activity, Host, request.Host.Host);
-        SetIntTagIfDifferent(activity, Port, request.Host.Port);
-        SetStringTagIfDifferent(activity, Path, path);
+        if (request != null)
+        {
+            var connection = context.Connection;
+            var path = (request.PathBase.HasValue || request.Path.HasValue) ? (request.PathBase + request.Path).ToString() : "/";
+            SetIpAddressTagIfDifferent(activity, ClientIP, connection.RemoteIpAddress?.ToString());
+            SetStringTagIfDifferent(activity, Scheme, request.Scheme);
+            SetStringTagIfDifferent(activity, Host, request.Host.Host);
+            SetIntTagIfDifferent(activity, Port, request.Host.Port);
+            SetStringTagIfDifferent(activity, Path, path);
+        }
     }
 
     private static void SetIpAddressTagIfDifferent(Activity activity, string key, string? value)
