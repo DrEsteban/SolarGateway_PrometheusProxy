@@ -10,12 +10,14 @@ public class MetricsCollectionService(
     CollectorRegistry collectorRegistry,
     IMemoryCache cache,
     IOptions<ResponseCacheConfiguration> responseCacheConfiguration,
+    IOptions<HttpConfiguration> httpConfiguration,
     ILogger<MetricsCollectionService> logger) : IMetricsCollectionService
 {
     private readonly IEnumerable<IMetricsService> _metricsServices = metricsServices;
     private readonly CollectorRegistry _collectorRegistry = collectorRegistry;
     private readonly IMemoryCache _cache = cache;
-    private readonly ResponseCacheConfiguration _configuration = responseCacheConfiguration.Value;
+    private readonly ResponseCacheConfiguration _responseCacheConfig = responseCacheConfiguration.Value;
+    private readonly HttpConfiguration _httpConfiguration = httpConfiguration.Value;
     private readonly ILogger<MetricsCollectionService> _logger = logger;
 
     private const string LastMetricsRequestCacheKey = "LastMetricsRequest";
@@ -24,7 +26,7 @@ public class MetricsCollectionService(
     {
         // Create a linked token source with a timeout
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(TimeSpan.FromSeconds(this._configuration.MetricsRequestTimeoutSeconds));
+        cts.CancelAfter(TimeSpan.FromSeconds(this._httpConfiguration.MetricsRequestTimeoutSeconds));
 
         // Log if we time out
         using var registration = cts.Token.Register(() => this._logger.LogWarning("Canceling metrics collection due to timeout"));
@@ -33,7 +35,7 @@ public class MetricsCollectionService(
         {
             await Task.WhenAll(this._metricsServices.Select(m => m.CollectMetricsAsync(this._collectorRegistry, cts.Token)));
 
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(this._configuration.ResponseCacheDurationSeconds);
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(this._responseCacheConfig.ResponseCacheDurationSeconds);
             return DateTimeOffset.UtcNow;
         });
     }

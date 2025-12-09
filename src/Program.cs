@@ -99,7 +99,8 @@ services.Configure<PrometheusAspNetCoreOptions>(options =>
 services.AddSingleton<CollectorRegistry>(Metrics.NewCustomRegistry());
 
 // Http
-services.AddSingleton<IOptions<ResponseCacheConfiguration>>(Options.Create(responseCacheConfiguration));
+services.AddOptions<ResponseCacheConfiguration>();
+services.AddOptions<HttpConfiguration>();
 services.AddMemoryCache();
 services.AddHttpContextAccessor();
 services.AddHealthChecks()
@@ -170,8 +171,10 @@ app.UseDeveloperExceptionPage();
 app.UseOpenTelemetryPrometheusScrapingEndpoint("/appmetrics");
 if (app.Configuration.GetValue<bool>("EnableConfigEndpoints", false))
 {
-    app.MapGet("/config/tesla", (IOptions<TeslaConfiguration> config) => Results.Ok(config.Value));
-    app.MapGet("/config/enphase", (IOptions<EnphaseConfiguration> config) => Results.Ok(config.Value));
+    app.MapGet("/config/tesla", (IOptions<TeslaConfiguration> config) => TypedResults.Ok(config.Value));
+    app.MapGet("/config/enphase", (IOptions<EnphaseConfiguration> config) => TypedResults.Ok(config.Value));
+    app.MapGet("/config/responsecache", (IOptions<ResponseCacheConfiguration> config) => TypedResults.Ok(config.Value));
+    app.MapGet("/config/http", (IOptions<HttpConfiguration> config) => TypedResults.Ok(config.Value));
 }
 app.MapMetricsEndpoints();
 app.MapHealthChecks("/health");
